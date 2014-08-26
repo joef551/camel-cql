@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:util="http://www.springframework.org/schema/util"
+	xmlns:p="http://www.springframework.org/schema/p"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans
+           http://www.springframework.org/schema/beans/spring-beans-3.0.xsd 
+           http://www.springframework.org/schema/util 
+           http://www.springframework.org/schema/util/spring-util-3.0.xsd">
+
+	
+	<bean id="handlerMapping" class="org.metis.cassandra.ClientMapper">
+		<property name="mappings">
+			<value>
+				/user=user
+				/video*=videoevent
+			</value>
+		</property>
+	</bean>
+	
+	<bean id="user" class="org.metis.cassandra.Client">
+		<property name="cqls">
+			<list>				
+				<value>select * from users</value>
+				<value>select username from username_video_index where username =
+					`text:username`
+				</value>
+				<value>select username, email from users where username =
+					`text:user`
+				</value>
+				<value>insert into users (username, created_date, email, firstname,
+					lastname, password) values (`text:username`,
+					`timestamp:created_date`, `list:text:email`,
+					`text:firstname`,`text:lastname`,`text:password`)
+				</value>
+				<value>delete from users where username=`text:user`</value>
+			</list>
+		</property>		
+		<property name="keyspace" value="videodb" />		
+		<property name="clusterBean" ref="cluster1" />
+	</bean>
+
+    <bean id="videoevent" class="org.metis.cassandra.Client">
+		<property name="cqls">
+			<list>
+				<value>select * from video_event</value>
+				<value> select * from video_event where videoid =
+					`uuid:videoid` and
+					username = `text:user`
+				</value>
+				<value>insert into video_event (videoid, username,
+					event_timestamp,
+					event, video_timestamp) values
+					(`uuid:username`, `text:user`,
+					`timeuuid:event_timestamp`,
+					`text:event`, `bigint:video_timestamp`)
+				</value>
+				<value>delete from video_event where videoid =
+					`uuid:videoid` and
+					username = `text:user`
+				</value>
+			</list>
+		</property>
+		<property name="keyspace" value="videodb" />
+		<property name="clusterBean" ref="cluster1" />
+	</bean>
+
+
+	
+	<bean id="cluster1" class="org.metis.cassandra.ClusterBean">		
+		<!-- <property name="clusterName" value="myCluster"/> -->		
+		<property name="clusterNodes" value="127.0.0.1" />		
+		<property name="loadBalancingPolicy" ref="roundRobin" />		
+		<property name="reconnectionPolicy" ref="reconnectionPolicy" />	
+		<property name="protocolOptions" ref="protocolOptions" />		
+		<property name="socketOptions" ref="socketOptions" />		
+		<property name="listOfPoolingOptions">
+			<list>
+				<ref bean="localOption" />
+				<ref bean="remoteOption>" />
+			</list>
+		</property>		
+		<!-- <property name="fetchSize" value="5000" /> -->		
+		<!-- <property name="consistencyLevel" value="ONE" /> -->		
+		<!-- <property name="serialConsistencyLevel" value="SERIAL" /> -->
+	</bean>
+
+	
+	<bean id="roundRobin" class="com.datastax.driver.core.policies.RoundRobinPolicy" />	
+	<bean id="reconnectionPolicy"
+		class="com.datastax.driver.core.policies.ExponentialReconnectionPolicy" />
+	<bean id="protocolOptions" class="com.datastax.driver.core.ProtocolOptions">
+		<constructor-arg name="port" value="9042" />
+	</bean>
+	<bean id="localOption" class="org.metis.cassandra.PoolingOption">
+		<property name="distance" value="local" />
+		<property name="coreConnections" value="5" />
+		<property name="maxConnections" value="10" />
+		<property name="maxSimultaneousRequests" value="5" />
+		<property name="minSimultaneousRequests" value="3" />
+	</bean>
+	<bean id="remoteOption" class="org.metis.cassandra.PoolingOption">
+		<property name="distance" value="remote" />
+		<property name="coreConnections" value="2" />
+		<property name="maxConnections" value="5" />
+		<property name="maxSimultaneousRequests" value="5" />
+		<property name="minSimultaneousRequests" value="3" />
+	</bean>
+	<bean id="socketOptions" class="com.datastax.driver.core.SocketOptions"/>
+
+</beans>
