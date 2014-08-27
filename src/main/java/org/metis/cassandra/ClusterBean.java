@@ -65,16 +65,16 @@ public class ClusterBean implements InitializingBean, BeanNameAware,
 	private List<PoolingOption> listOfPoolingOptions;
 	private ProtocolOptions protocolOptions;
 	private SocketOptions socketOptions;
-	private QueryOptions queryOptions;	
+	private QueryOptions queryOptions;
 	private ConsistencyLevel consistencyLevel = QueryOptions.DEFAULT_CONSISTENCY_LEVEL;
 	private ConsistencyLevel serialConsistencyLevel = QueryOptions.DEFAULT_SERIAL_CONSISTENCY_LEVEL;
-	private Compression compressionLevel = Compression.NONE;	
+	private Compression compressionLevel = Compression.NONE;
 	private int fetchSize = QueryOptions.DEFAULT_FETCH_SIZE;
 	private int port = ProtocolOptions.DEFAULT_PORT;
-	private int protocolVersion = -1;	
+	private int protocolVersion = -1;
 	private boolean jmxReportingEnabled;
 	private String consistency;
-	private String serialConsistency;	
+	private String serialConsistency;
 	private String compression = Compression.NONE.toString();
 	private String clusterNodes;
 
@@ -114,15 +114,22 @@ public class ClusterBean implements InitializingBean, BeanNameAware,
 				getCompressionLevel()));
 
 		// 4. Set the pooling options
-		setPoolingOptions(new PoolingOptions());		
+		setPoolingOptions(new PoolingOptions());
 		if (getListOfPoolingOptions() != null) {
-			for (PoolingOption po : getListOfPoolingOptions()) {				
-				if (po.getHostDistance() != HostDistance.IGNORED) {					
+			for (PoolingOption po : getListOfPoolingOptions()) {
+				if (po.getHostDistance() != HostDistance.IGNORED) {
+					if (po.getMinSimultaneousRequests() >= 0) {
+						setPoolingOptions(getPoolingOptions()
+								.setMinSimultaneousRequestsPerConnectionThreshold(
+										po.getHostDistance(),
+										po.getMinSimultaneousRequests()));
+					}
 					if (po.getCoreConnections() >= 0) {
 						setPoolingOptions(getPoolingOptions()
-								.setCoreConnectionsPerHost(po.getHostDistance(),
+								.setCoreConnectionsPerHost(
+										po.getHostDistance(),
 										po.getCoreConnections()));
-					}					
+					}
 					if (po.getMaxConnections() >= 0) {
 						setPoolingOptions(getPoolingOptions()
 								.setMaxConnectionsPerHost(po.getHostDistance(),
@@ -133,23 +140,17 @@ public class ClusterBean implements InitializingBean, BeanNameAware,
 								.setMaxSimultaneousRequestsPerConnectionThreshold(
 										po.getHostDistance(),
 										po.getMaxSimultaneousRequests()));
+					}
 
-					}
-					if (po.getMinSimultaneousRequests() >= 0) {
-						setPoolingOptions(getPoolingOptions()
-								.setMinSimultaneousRequestsPerConnectionThreshold(
-										po.getHostDistance(),
-										po.getMinSimultaneousRequests()));
-					}
 				}
 
 			}
-		} 
+		}
 
-		// 5. Set the socket options		
-		if(getSocketOptions() == null) {
+		// 5. Set the socket options
+		if (getSocketOptions() == null) {
 			setSocketOptions(new SocketOptions());
-		}	
+		}
 
 		// 6. Set the QueryOptions
 		setQueryOptions(new QueryOptions()
@@ -261,8 +262,7 @@ public class ClusterBean implements InitializingBean, BeanNameAware,
 	public void setPoolingOptions(PoolingOptions poolingOptions) {
 		this.poolingOptions = poolingOptions;
 	}
-	
-	
+
 	/**
 	 * @return the consistencyLevel
 	 */
@@ -351,7 +351,6 @@ public class ClusterBean implements InitializingBean, BeanNameAware,
 	public void setFetchSize(int fetchSize) {
 		this.fetchSize = fetchSize;
 	}
-	
 
 	/**
 	 * This is in the protocol options

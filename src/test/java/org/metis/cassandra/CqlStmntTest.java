@@ -20,9 +20,14 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.metis.cassandra.Client;
 import org.metis.cassandra.CqlStmnt;
+import org.springframework.beans.BeansException;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.support.ClassPathXmlApplicationContext;
 import org.junit.FixMethodOrder;
 import org.junit.runners.MethodSorters;
+
 import com.datastax.driver.core.Cluster;
+
 import static org.junit.Assert.*;
 
 /**
@@ -32,25 +37,33 @@ import static org.junit.Assert.*;
  * 
  */
 
-// Test methods will be executed in ascending order by name
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
 public class CqlStmntTest {
 	private static Client client;
 	private static ArrayList<String> list = new ArrayList<String>();
-	private static Cluster cluster;
+	// private static Cluster cluster;
 	private static ClusterBean clusterBean;
+	static private ApplicationContext context = null;
 
 	/**
-	 * Cassandra needs to be running on the localhost and the videodb keyspace
-	 * must be installed.
+	 * To run these tests, Cassandra needs to be running and the videodb
+	 * keyspace must be installed. See ${project-home}/src/main/cql for videodb
+	 * CQL scripts
 	 * 
 	 * @throws Exception
 	 */
 	@BeforeClass
 	public static void initialize() throws Exception {
-		cluster = Cluster.builder().addContactPoint("127.0.0.1").build();
-		clusterBean = new ClusterBean();
-		clusterBean.setCluster(cluster);
+		// Grab the cluster bean defined in the test cassandra.xml file.
+		try {
+			context = new ClassPathXmlApplicationContext("cassandra.xml");
+		} catch (BeansException be) {
+			System.out
+					.println("ERROR: unable to load spring context, got this exception: \n"
+							+ be.getLocalizedMessage());
+			be.printStackTrace();
+		}
+		clusterBean = context.getBean(ClusterBean.class);
 	}
 
 	@Test
@@ -97,7 +110,7 @@ public class CqlStmntTest {
 		}
 
 		// setCqls4Select will throw an exception because statement doesn't
-		// start with select
+		// start with valid method
 		cql = "insertx into artists_by_first_letter (first_letter,artist) "
 				+ "values (`text:first_letter`, `text:artist`)";
 		list.add(cql);
@@ -114,7 +127,7 @@ public class CqlStmntTest {
 			}
 		}
 
-		// this cql should throw an exception because the field's
+		// this cql should throw an exception because the parameterized field's
 		// definition is not fully defined
 		cql = "select first from users where first=`int`";
 		list.clear();
@@ -195,7 +208,7 @@ public class CqlStmntTest {
 		}
 
 		// this cql should throw an exception because the parameter doesn't have
-		// a closing ` char
+		// a closing backtick
 		cql = "select first from users where first = `int:first";
 		list.clear();
 		list.add(cql);
@@ -208,12 +221,10 @@ public class CqlStmntTest {
 			fail("ERROR: did not get Exception for this invalid cql "
 					+ "statement: " + cql);
 		} catch (Exception e) {
-
-			// Cassandra driver will throw the exception
 		}
 
 		// this cql should throw an exception because the parameter doesn't have
-		// a starting ` char
+		// a starting backtick
 		cql = "select first from users where first = int:first`";
 		list.clear();
 		list.add(cql);
@@ -271,7 +282,7 @@ public class CqlStmntTest {
 
 		// this should result in an exception because there are two cql
 		// statements with the same 'signature' being assigned to the
-		// GET method
+		// select method
 		list.clear();
 		list.add("select first from users where first=`int:first`");
 		list.add("select last from users where first=`int:first`");
@@ -316,8 +327,8 @@ public class CqlStmntTest {
 		} catch (Exception ignore) {
 		}
 
-		// this should throw an exception because the select statement has
-		// misconfigured a primitive type
+		// this should throw an exception because "ascii" is not a collection
+		// type
 		cql = "select first from users where first=`ascii:text:first`";
 		list.clear();
 		list.add(cql);
@@ -374,7 +385,7 @@ public class CqlStmntTest {
 			}
 		}
 
-		// this should not throw an exception
+		// this CQL statement is valid
 		cql = "select username, created_date from users where username = `ascii:username`";
 		list.clear();
 		list.add(cql);
@@ -457,7 +468,8 @@ public class CqlStmntTest {
 					+ e.getMessage());
 		}
 
-		// should throw an exception
+		// should throw an exception b/c we're trying to add an insert into list
+		// of deletes
 		cql = "insert into video_event (videoid,username) "
 				+ "values (blobAsUuid(timeuuidAsBlob(now())), `text:username`)";
 		list.clear();
@@ -476,7 +488,7 @@ public class CqlStmntTest {
 			}
 		}
 
-		// should throw an exception
+		// should throw an exception - similar to above
 		cql = "delete from video_event where username = `text:username`";
 		list.clear();
 		list.add(cql);

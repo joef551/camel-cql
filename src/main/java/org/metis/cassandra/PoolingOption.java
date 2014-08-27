@@ -35,6 +35,7 @@ public class PoolingOption implements InitializingBean, BeanNameAware,
 	private HostDistance hostDistance = HostDistance.IGNORED;
 
 	public PoolingOption() {
+		super();
 	}
 
 	public void afterPropertiesSet() throws Exception {
