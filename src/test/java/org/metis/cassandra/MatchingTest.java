@@ -100,9 +100,17 @@ public class MatchingTest {
 				.equals(stmnt.getPreparedStr()));		
 		map.put("videoid", "3984793");
 		stmnt = CqlStmnt.getMatch(cqlList, map.keySet());
-		assertTrue(stmnt != null);
-		System.out.println(stmnt);
+		assertTrue(stmnt != null);		
 		assertTrue("select videoid , username from video_event where videoid= ? and username= ?"
 				.equals(stmnt.getPreparedStr()));
+		map.put("foobar", "3984793");
+		stmnt = CqlStmnt.getMatch(cqlList, map.keySet());
+		assertTrue(stmnt == null);
+		map.clear();
+		map.put("foo", "joef551");
+		stmnt = CqlStmnt.getMatch(cqlList, map.keySet());
+		assertTrue(stmnt == null);
+		
+		
 	}
 }

@@ -32,11 +32,6 @@ import org.springframework.context.support.ClassPathXmlApplicationContext;
  */
 public class CqlComponent extends DefaultComponent {
 
-	/**
-	 * This component's URL scheme. TODO: maybe it should be "cql"?
-	 */
-	public static final String CASSY_SCHEME = "cassandra:";
-
 	private static final Logger LOG = LoggerFactory
 			.getLogger(CqlComponent.class);
 
@@ -191,8 +186,8 @@ public class CqlComponent extends DefaultComponent {
 
 	/**
 	 * Return a file handle to the Spring context file currently being used by
-	 * this instance of the CqlComponent. Note that this method returns
-	 * null if the Component has never been started.
+	 * this instance of the CqlComponent. Note that this method returns null if
+	 * the Component has never been started.
 	 * 
 	 * @return String file name
 	 */
@@ -259,8 +254,8 @@ public class CqlComponent extends DefaultComponent {
 
 	/**
 	 * Return the Profile object currently being used by this instance of the
-	 * CqlComponent. Note that this method returns null if the Component
-	 * has never been started.
+	 * CqlComponent. Note that this method returns null if the Component has
+	 * never been started.
 	 */
 	public ComponentProfile getComponentProfile() {
 		return componentProfile;
@@ -271,9 +266,9 @@ public class CqlComponent extends DefaultComponent {
 	}
 
 	/**
-	 * This method is called by camel core to get a CqlEndpoint.
-	 * Assumption is made that this method must be multi-thread capable and must
-	 * also be aware of this component's lifecycle.
+	 * This method is called by camel core to get a CqlEndpoint. Assumption is
+	 * made that this method must be multi-thread capable and must also be aware
+	 * of this component's lifecycle.
 	 */
 	public Endpoint createEndpoint(String uri, String remaining,
 			Map<String, Object> parameters) throws Exception {
@@ -288,21 +283,23 @@ public class CqlComponent extends DefaultComponent {
 		// if you stop the component, then it must be explicitly started!
 		if (isStopped()) {
 			LOG.warn("createEndpoint: component has been stopped");
-			throw new Exception("createEndpoint: component has been stopped");
+			// throw new
+			// Exception("createEndpoint: component has been stopped");
 		}
 
 		// do nothing if this component has been suspended
 		// if it has been suspended, then you must explicitly resume it!
 		if (isSuspended()) {
 			LOG.warn("createEndpoint: component has been suspended");
-			throw new Exception("createEndpoint: component has been suspended");
+			// throw new
+			// Exception("createEndpoint: component has been suspended");
 		}
 
 		// wait while component is in the process of starting/initializing
 		while (isStarting()) {
 			LOG.warn("createEndpoint: waiting for component to start");
 			try {
-				this.wait(1000);
+				this.wait(500);
 			} catch (InterruptedException ignore) {
 			}
 		}
@@ -319,7 +316,7 @@ public class CqlComponent extends DefaultComponent {
 			} finally {
 				// wake up any threads that may have been waiting for this
 				// component to be started
-				this.notifyAll();
+				notifyAll();
 			}
 		}
 
@@ -360,8 +357,7 @@ public class CqlComponent extends DefaultComponent {
 				((Client) obj).getBeanName());
 
 		// create and return a CqlEndpoint
-		return new CqlEndpoint(uri, contextPath, this, parameters,
-				(Client) obj);
+		return new CqlEndpoint(uri, contextPath, this, parameters, (Client) obj);
 
 	}
 
@@ -380,7 +376,9 @@ public class CqlComponent extends DefaultComponent {
 
 		LOG.trace("doStart: enter");
 
-		if (shutdown.get()) {
+		// a component that has been shut down cannot be restarted; only stopped
+		// components can be restarted
+		if (isShutdown()) {
 			throw new Exception("component has been shut down");
 		}
 		// okay to proceed, begin initialization
@@ -395,7 +393,7 @@ public class CqlComponent extends DefaultComponent {
 
 		LOG.trace("doStop: enter");
 
-		if (shutdown.get()) {
+		if (isShutdown()) {
 			LOG.warn("component has already been shut down");
 			return;
 		} else if (!isSuspended() && !isStarted()) {
@@ -499,6 +497,10 @@ public class CqlComponent extends DefaultComponent {
 				LOG.trace("initProfileMonitor: profile not started");
 			}
 		}
+	}
+
+	private boolean isShutdown() {
+		return shutdown.get();
 	}
 
 	/**

@@ -537,11 +537,16 @@ public class CqlStmnt {
 		}
 
 		Statement stmnt = null;
+		ResultSet resultSet = null;
 		// execute the statement
 		try {
-
 			// get either a bound or simple statement
 			stmnt = (isPrepared()) ? getBoundStatement() : getSimpleStatement();
+			if (stmnt == null) {
+				LOG.error("execute: ERROR, getBoundStatement() or "
+						+ "getSimpleStatement() returned null");
+				return null;
+			}
 			stmnt.setFetchSize(fetchSize);
 			stmnt.setConsistencyLevel(cLevel);
 			stmnt.setSerialConsistencyLevel(sLevel);
@@ -579,24 +584,18 @@ public class CqlStmnt {
 						}
 					}
 				}
-				return session.execute((SimpleStatement) stmnt);
+			} else {
+				LOG.debug("execute: executing this simple statement {} ",
+						getOriginalStr());
 			}
-			LOG.debug("execute: executing this simple statement {} ",
-					getOriginalStr());
-			SimpleStatement sStmnt = getSimpleStatement();
-			sStmnt.setFetchSize(fetchSize);
-			sStmnt.setConsistencyLevel(cLevel);
-			sStmnt.setSerialConsistencyLevel(sLevel);
-			return session.execute(getOriginalStr());
-
+			resultSet = session.execute(stmnt);
 		} catch (Exception exc) {
 			LOG.error("execute: caught this exception {}", exc.getClass()
 					.getName());
 			Utils.dumpStackTrace(exc.getStackTrace());
-		} finally {
-			returnStatement(stmnt);
 		}
-		return null;
+		returnStatement(stmnt);
+		return resultSet;
 	}
 
 	/**

@@ -58,8 +58,7 @@ public class InsertUserTest extends BaseTest {
 		System.setProperty(CASSANDRA_METHOD, "");
 		// this is what we send to the CqlEndpoint. Note how we're
 		// specifying the request method via the payload.
-		String JSON = "{\"" + CASSANDRA_METHOD + "\":\"select\","
-				+ "\"user\":\"jfernandez\"}";
+		String JSON = "{\"user\":\"jfernandez\"}";
 		getMockEndpoint("mock:result")
 				.expectedMessagesMatches(new TestResult());
 		// feed the route, which starts the test
