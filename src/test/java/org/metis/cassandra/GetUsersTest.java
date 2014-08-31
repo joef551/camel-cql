@@ -15,9 +15,11 @@ package org.metis.cassandra;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.Exchange;
 import org.apache.camel.Predicate;
@@ -35,12 +37,13 @@ import org.junit.runners.MethodSorters;
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
 public class GetUsersTest extends BaseTest {
 
+	// test with JSON as an input
 	@Test
 	public void testASendMessage() throws Exception {
 		// this is what we send to the CqlEndpoint
 		String JSON = "{\"username\":\"tcodd\"}";
 		// tell the mock end point that we expect to get back a List of Maps
-		// having 51 Maps, each with only one entry whose value is a String.
+		// having 2 Maps, each with only one entry whose value is a String.
 		getMockEndpoint("mock:result")
 				.expectedMessagesMatches(new TestResult());
 		// feed the route, which starts the test
@@ -50,6 +53,7 @@ public class GetUsersTest extends BaseTest {
 		assertMockEndpointsSatisfied();
 	}
 
+	// test with single map
 	@Test
 	public void testBSendMessage() throws Exception {
 		getMockEndpoint("mock:result")
@@ -64,8 +68,26 @@ public class GetUsersTest extends BaseTest {
 
 	}
 
+	// test with list of maps
 	@Test
 	public void testCSendMessage() throws Exception {
+		getMockEndpoint("mock:result")
+				.expectedMessagesMatches(new TestResult());
+		// send a Map
+		List<Map<String, String>> list = new ArrayList<Map<String, String>>();
+		Map<String, String> map = new HashMap<String, String>();
+		map.put("username", "tcodd");
+		list.add(map);
+		getMockEndpoint("mock:result")
+				.expectedMessagesMatches(new TestResult());
+		template.requestBody("direct:start", list);
+		assertMockEndpointsSatisfied();
+
+	}
+
+	// test with stream
+	@Test
+	public void testDSendMessage() throws Exception {
 		String JSON = "{\"username\":\"tcodd\"}";
 		getMockEndpoint("mock:result")
 				.expectedMessagesMatches(new TestResult());
@@ -87,8 +109,7 @@ public class GetUsersTest extends BaseTest {
 				// sent to Cassandra component, then the reply is sent
 				// on to the mock endpoint. The mock endpoint will then validate
 				// it via the TestResult predicate.
-				from("direct:start").process(new MyProcessor())
-						.to("cql://user").to("mock:result");
+				from("direct:start").to("cql:user").to("mock:result");
 			}
 		};
 	}
@@ -100,11 +121,10 @@ public class GetUsersTest extends BaseTest {
 
 		public boolean matches(Exchange exchange) {
 			Object payLoad = exchange.getIn().getBody();
-			if (payLoad == null) {
+			if (payLoad == null || !(payLoad instanceof List)) {
 				return false;
-			} else if (!(payLoad instanceof List)) {
-				return false;
-			}
+			} 
+			
 			List<Object> list = (List) payLoad;
 			if (list.size() != 2) {
 				return false;

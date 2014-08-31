@@ -35,21 +35,22 @@ import static org.metis.utils.Constants.*;
 // Test methods will be executed in ascending order by name
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
 public class InsertVideoTest extends BaseTest {
-	
+
 	private static String videoid = UUIDs.random().toString();
 	private static String event_timestamp = UUIDs.timeBased().toString();
 
+	// insert a record into the video event table
 	@Test
 	public void testA() throws Exception {
 		// the route will place the request method of "insert" into the Exchange
-		Map<String,String> map = new HashMap<String,String>();
+		Map<String, String> map = new HashMap<String, String>();
 		map.put("username", "jfernandez");
 		map.put("videoid", videoid);
 		map.put("event_timestamp", event_timestamp);
 		map.put("event", "start");
 		map.put("video_timestamp", "500000");
-		map.put(CASSANDRA_METHOD,"insert");		
-		template.requestBody("direct:start", map);
+		template.requestBodyAndHeader("direct:start", map, CASSANDRA_METHOD,
+				"insert");
 	}
 
 	/**
@@ -58,19 +59,13 @@ public class InsertVideoTest extends BaseTest {
 	 * @throws Exception
 	 */
 	@Test
-	public void testB() throws Exception {
-		// erase the system property that specifies the global request method
-		System.setProperty(CASSANDRA_METHOD, "");
-		// this is what we send to the CqlEndpoint. Note how we're
-		// specifying the request method via the payload.
-		String JSON = "{\"" + CASSANDRA_METHOD + "\":\"select\","
-				+ "\"user\":\"jfernandez\"}";
+	public void testB() throws Exception {		
+		String JSON = "{\"username\":\"jfernandez\",\"videoid\":\"" + videoid
+				+ "\"}";
 		getMockEndpoint("mock:result")
 				.expectedMessagesMatches(new TestResult());
-		// feed the route, which starts the test
-		template.requestBody("direct:start", JSON);
-		// ask the mock endpoint if it received the expected body and
-		// value.
+		template.requestBodyAndHeader("direct:start", JSON, CASSANDRA_METHOD,
+				"select");
 		assertMockEndpointsSatisfied();
 	}
 
@@ -82,11 +77,10 @@ public class InsertVideoTest extends BaseTest {
 	@Test
 	public void testC() throws Exception {
 		// this is what we send to the CqlEndpoint
-		String JSON = "{\"user\":\"jfernandez\"}";
-		// tell our route processor which Cassandra method to process
-		System.setProperty(CASSANDRA_METHOD, "delete");
-		// feed the route, which starts the test
-		template.requestBody("direct:start", JSON);
+		String JSON = "{\"username\":\"jfernandez\",\"videoid\":\"" + videoid
+				+ "\"}";
+		template.requestBodyAndHeader("direct:start", JSON, CASSANDRA_METHOD,
+				"delete");
 	}
 
 	/**
@@ -97,13 +91,14 @@ public class InsertVideoTest extends BaseTest {
 	@Test
 	public void testD() throws Exception {
 		// this is what we send to the CqlEndpoint
-		String JSON = "{\"user\":\"jfernandez\"}";
+		String JSON = "{\"username\":\"jfernandez\",\"videoid\":\"" + videoid
+				+ "\"}";
 		getMockEndpoint("mock:result").expectedMessagesMatches(
 				new TestResult2());
-		// tell our route processor which Cassandra method to process
-		System.setProperty(CASSANDRA_METHOD, "select");
+
 		// feed the route, which starts the test
-		template.requestBody("direct:start", JSON);
+		template.requestBodyAndHeader("direct:start", JSON, CASSANDRA_METHOD,
+				"select");
 		// ask the mock endpoint if it received the expected body and
 		// value.
 		assertMockEndpointsSatisfied();
@@ -118,8 +113,7 @@ public class InsertVideoTest extends BaseTest {
 				// sent to Cassandra component, then the reply is sent
 				// on to the mock endpoint. The mock endpoint will then validate
 				// it via the TestResult predicate.
-				from("direct:start").process(new MyProcessor())
-						.to("cql://user").to("mock:result");
+				from("direct:start").to("cql:video").to("mock:result");
 			}
 		};
 	}
@@ -133,11 +127,10 @@ public class InsertVideoTest extends BaseTest {
 		public boolean matches(Exchange exchange) {
 
 			Object payLoad = exchange.getIn().getBody();
-			if (payLoad == null) {
-				return false;
-			} else if (!(payLoad instanceof List)) {
+			if (payLoad == null || !(payLoad instanceof List)) {
 				return false;
 			}
+
 			List<Object> list = (List) payLoad;
 			if (list.size() != 1) {
 				return false;
@@ -147,7 +140,7 @@ public class InsertVideoTest extends BaseTest {
 				return false;
 			}
 			Map map = (Map) payLoad;
-			if (map.size() != 2) {
+			if (map.size() != 5) {
 				return false;
 			}
 			Object value = map.get("username");
@@ -155,26 +148,6 @@ public class InsertVideoTest extends BaseTest {
 				return false;
 			}
 			if (!"jfernandez".equals(value)) {
-				return false;
-			}
-
-			// retrieve the list of emails
-			value = map.get("email");
-			if (value == null) {
-				return false;
-			}
-
-			if (!(value instanceof List)) {
-				return false;
-			}
-
-			list = (List) value;
-			if (list.size() != 2) {
-				return false;
-			}
-			if (!"jfernandez@cox.net".equals(list.get(0).toString())) {
-				return false;
-			} else if (!"joef551@yahoo.com".equals(list.get(1).toString())) {
 				return false;
 			}
 

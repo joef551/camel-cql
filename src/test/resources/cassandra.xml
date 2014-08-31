@@ -12,7 +12,7 @@
 		<property name="mappings">
 			<value>
 				/user=user
-				/videoevent*=videoevent
+				/video*=videoevent
 			</value>
 		</property>
 	</bean>
@@ -46,18 +46,18 @@
 				<value>select * from video_event</value>
 				<value> select * from video_event where videoid =
 					`uuid:videoid` and
-					username = `text:user`
+					username = `text:username`
 				</value>
 				<value>insert into video_event (videoid, username,
 					event_timestamp,
 					event, video_timestamp) values
-					(`uuid:username`, `text:user`,
+					(`uuid:videoid`, `text:username`,
 					`timeuuid:event_timestamp`,
 					`text:event`, `bigint:video_timestamp`)
 				</value>
 				<value>delete from video_event where videoid =
 					`uuid:videoid` and
-					username = `text:user`
+					username = `text:username`
 				</value>
 			</list>
 		</property>

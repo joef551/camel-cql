@@ -25,9 +25,6 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 import org.junit.FixMethodOrder;
 import org.junit.runners.MethodSorters;
-
-import com.datastax.driver.core.Cluster;
-
 import static org.junit.Assert.*;
 
 /**

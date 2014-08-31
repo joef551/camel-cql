@@ -38,13 +38,11 @@ public class InsertUserTest extends BaseTest {
 
 	@Test
 	public void testA() throws Exception {
-		// the route will place the request method of "insert" into the Exchange
-		System.setProperty(CASSANDRA_METHOD, "insert");
-		// this is what we send to the CqlEndpoint
 		String JSON = "{\"username\":\"jfernandez\", \"created_date\":\"2014-06-6 13:50:00\", "
 				+ "\"email\":[\"jfernandez@cox.net\",\"joef551@yahoo.com\"],"
 				+ "\"firstname\":\"joe\",\"lastname\":\"fernandez\",\"password\":\"abc123\"}";
-		template.requestBody("direct:start", JSON);
+		template.requestBodyAndHeader("direct:start", JSON, CASSANDRA_METHOD,
+				"insert");
 	}
 
 	/**
@@ -54,15 +52,14 @@ public class InsertUserTest extends BaseTest {
 	 */
 	@Test
 	public void testB() throws Exception {
-		// erase the system property that specifies the global request method
-		System.setProperty(CASSANDRA_METHOD, "");
 		// this is what we send to the CqlEndpoint. Note how we're
 		// specifying the request method via the payload.
 		String JSON = "{\"user\":\"jfernandez\"}";
 		getMockEndpoint("mock:result")
 				.expectedMessagesMatches(new TestResult());
 		// feed the route, which starts the test
-		template.requestBody("direct:start", JSON);
+		template.requestBodyAndHeader("direct:start", JSON, CASSANDRA_METHOD,
+				"select");
 		// ask the mock endpoint if it received the expected body and
 		// value.
 		assertMockEndpointsSatisfied();
@@ -77,10 +74,9 @@ public class InsertUserTest extends BaseTest {
 	public void testC() throws Exception {
 		// this is what we send to the CqlEndpoint
 		String JSON = "{\"user\":\"jfernandez\"}";
-		// tell our route processor which Cassandra method to process
-		System.setProperty(CASSANDRA_METHOD, "delete");
 		// feed the route, which starts the test
-		template.requestBody("direct:start", JSON);
+		template.requestBodyAndHeader("direct:start", JSON, CASSANDRA_METHOD,
+				"delete");
 	}
 
 	/**
@@ -94,10 +90,9 @@ public class InsertUserTest extends BaseTest {
 		String JSON = "{\"user\":\"jfernandez\"}";
 		getMockEndpoint("mock:result").expectedMessagesMatches(
 				new TestResult2());
-		// tell our route processor which Cassandra method to process
-		System.setProperty(CASSANDRA_METHOD, "select");
 		// feed the route, which starts the test
-		template.requestBody("direct:start", JSON);
+		template.requestBodyAndHeader("direct:start", JSON, CASSANDRA_METHOD,
+				"select");
 		// ask the mock endpoint if it received the expected body and
 		// value.
 		assertMockEndpointsSatisfied();
@@ -112,8 +107,7 @@ public class InsertUserTest extends BaseTest {
 				// sent to Cassandra component, then the reply is sent
 				// on to the mock endpoint. The mock endpoint will then validate
 				// it via the TestResult predicate.
-				from("direct:start").process(new MyProcessor())
-						.to("cql://user").to("mock:result");
+				from("direct:start").to("cql:user").to("mock:result");
 			}
 		};
 	}

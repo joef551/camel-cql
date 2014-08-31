@@ -13,10 +13,6 @@
  */
 package org.metis.cassandra;
 
-import static org.metis.utils.Constants.CASSANDRA_METHOD;
-
-import org.apache.camel.Exchange;
-import org.apache.camel.Processor;
 import org.apache.camel.test.junit4.CamelTestSupport;
 
 /**
@@ -38,16 +34,6 @@ public class BaseTest extends CamelTestSupport {
 	@Override
 	public boolean isCreateCamelContextPerClass() {
 		return true;
-	}
-
-	public class MyProcessor implements Processor {
-		public void process(Exchange exchange) throws Exception {
-			String method = System.getProperty(CASSANDRA_METHOD);
-			if (method != null && !method.isEmpty()) {
-				exchange.getIn().setHeader(CASSANDRA_METHOD, method);
-				//exchange.setProperty(CASSANDRA_METHOD, method);
-			}
-		}
 	}
 
 }
