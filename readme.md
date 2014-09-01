@@ -17,7 +17,7 @@ A Cassandra CQL component is configured through an external Spring XML file (Spr
 Client Bean (org.metis.cassandra.Client)
 ----
 
-The client bean is a thread-safe bean that is used for accessing a Cassandra cluster, a keyspace within the cluster, and any tables within the keyspace. The CQL component's URI is used to identify which client to use. For example, a URI of `cql:user` specifies the client bean with an id of "user", which may be used for accessing the user table in some Cassandra keyspace. 
+The client bean is a thread-safe bean that is used for accessing a Cassandra cluster, a keyspace within the cluster, and any tables within the keyspace. The CQL component's URI is used to identify which client to use. For example, a URI of `cql:user` specifies the client bean with an id of "user", which may be used for accessing the user table in some Cassandra keyspace. Also see [Client Mapper](#clientmapper) for using ant-style pattern matching to identify a client bean. 
 
 Each client bean that you define is assigned one or more CQL statements, which can be any combination of SELECT, UPDATE, DELETE, and INSERT. The specified method, in combination with input parameters (key:value pairs), are used to identify which of the client's CQL statements are to be used for the corresponding request (i.e., Camel in message). The default method is SELECT, and if there are no input parameters, then the CQL statement not having any parameterized fields (see below) will be chosen. The method is specified in the Camel Exchange's input message via a header called, "**metis.cassandra.method**". The input parameters are passed in via the in-message's body (a.k.a., payload) as either a Map, List of Maps, or JSON object. Again, if you don't specify a method, the default SELECT is used. A response for a InOut MEP is sent back as a List of Maps. So through a single Camel route, you can invoke any of the CQL statements that are assigned to a particular client. This, therefore, precludes the route from getting nailed to any one particular CQL statement. Here's a snippet of XML that defines a client bean called "user". 
 
@@ -43,7 +43,7 @@ Each client bean that you define is assigned one or more CQL statements, which c
 
 The **cqls** property is used to assign the client bean one or more CQL statements. In the example above, the client bean has been assigned five CQL statements: three selects, one insert, and one delete. 
 
-Note that four of the statements have parts delimited by backticks (e.g., \`list:text:email\`). These are *parameterized fields* that comprise 2 or 3 subfields, which are delimited by a ":". Parameterized fields are used for binding input parameters to prepared CQL statements. So any CQL statement with a parameterized field is treated as a CQL prepared statement. The first subfield (from right-to-left) of a parameterized field is required, and it specifies the name of the input parameter that corresponds to the field. In other words, it must match the key of a key:value pair that is passed in via the Camel in-message or payload. In the previous example, 'email' is the name of the input parameter. The next subfield is the type of input parameter, and it must match one of the Cassandra [data types](http://www.datastax.com/drivers/java/2.0/com/datastax/driver/core/DataType.Name.html). The last subfield, which is optional, is used to specify a collection (list, map, or set). Here are a couple of examples:
+Note that four of the statements have parts delimited by backticks (e.g., \`list:text:email\`). These are *parameterized fields* that comprise 2 or 3 subfields, which are delimited by a ":". Parameterized fields are used for binding input parameters to prepared CQL statements. So any CQL statement with a parameterized field is treated as a CQL prepared statement. The first subfield (from right-to-left) of a parameterized field is required, and it specifies the name of the input parameter that corresponds to the field. In other words, it must match the key of a key:value pair that is passed in via the Camel in-message's body or payload. In the previous example, 'email' is the name of the input parameter. The next subfield is the type of input parameter, and it must match one of the Cassandra [data types](http://www.datastax.com/drivers/java/2.0/com/datastax/driver/core/DataType.Name.html). The last subfield, which is optional, is used to specify a collection (list, map, or set). Here are a couple of examples:
 
 1. **\`list:text:email\`** is a parameterized field that is matched up to an input parameter whose key is 'email' and whose value is a list of ascii text strings. 
 2. **\`text:username\`** is a parameterized field that is matched up to an input parameter whose key is 'username' and whose value is an ascii text string. 
@@ -90,6 +90,11 @@ The optional client mapper is used for mapping URIs to Cassandra clients that ar
   </property>
 </bean>
 ````
+So given the above mappings, all of the following URIs will get mapped to the client with an ID of 'videoevent':
+
+- cql:video
+- cql:videoentry
+
 You can only have one client mapper per Spring XML application context.
 
 

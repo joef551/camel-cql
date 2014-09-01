@@ -319,9 +319,7 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 							+ "same key set!");
 				}
 			}
-		}
-		// incoming payload was not provided, so dummy one up
-		else {
+		} else {
 			LOG.trace(getBeanName() + ":camelProcess: payload was not provided");
 		}
 
