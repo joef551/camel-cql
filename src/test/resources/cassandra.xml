@@ -59,6 +59,20 @@
 					`uuid:videoid` and
 					username = `text:username`
 				</value>
+				<value> select * from videos where videoid = `uuid:videoid`	</value>
+				<value>insert into videos (videoid, description,
+					location, tags,
+					upload_date, username, videoname) values
+					(`uuid:videoid`,
+					`text:description`, `map:text:location`,
+					`set:text:tags`,
+					`timestamp:upload_date`, `text:username`,
+					`text:videoname`)
+				</value>
+				<value>delete from videos where videoid =
+					`uuid:videoid`
+				</value>
+
 			</list>
 		</property>
 		<property name="keyspace" value="videodb" />
@@ -96,14 +110,14 @@
 		<property name="coreConnections" value="5" />
 		<property name="maxConnections" value="10" />
 		<property name="minSimultaneousRequests" value="3" />
-		<property name="maxSimultaneousRequests" value="5" />		
+		<property name="maxSimultaneousRequests" value="5" />
 	</bean>
 	<bean id="remoteOption" class="org.metis.cassandra.PoolingOption">
 		<property name="distance" value="remote" />
 		<property name="coreConnections" value="2" />
 		<property name="maxConnections" value="5" />
 		<property name="minSimultaneousRequests" value="3" />
-		<property name="maxSimultaneousRequests" value="5" />		
+		<property name="maxSimultaneousRequests" value="5" />
 	</bean>
 	<bean id="socketOptions" class="com.datastax.driver.core.SocketOptions" />
 
