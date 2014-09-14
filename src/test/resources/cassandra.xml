@@ -60,6 +60,7 @@
 					username = `text:username`
 				</value>
 				<value> select * from videos where videoid = `uuid:videoid`	</value>
+				<!-- in this test we're inserting a set and map -->
 				<value>insert into videos (videoid, description,
 					location, tags,
 					upload_date, username, videoname) values

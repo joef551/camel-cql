@@ -47,7 +47,11 @@ Note that four of the statements have parts delimited by backticks (e.g., \`list
 
 1. **\`list:text:email\`** is a parameterized field that is matched up to an input parameter whose key is 'email' and whose value is a list of ascii text strings. 
 2. **\`text:username\`** is a parameterized field that is matched up to an input parameter whose key is 'username' and whose value is an ascii text string. 
- 
+
+
+Note from [1] about using collections. <i>"Use collections, such as Set, List or Map, when you want to store or denormalize a small amount of data. Values of items in collections are limited to 64K. Other limitations also apply. Collections work well for storing data such as the phone numbers of a user and labels applied to an email. If the data you need to store has unbounded growth potential, such as all the messages sent by a user or events registered by a sensor, do not use collections. Instead, use a table having a compound primary key and store data in the clustering columns"".</i>
+
+
 All CQL statements for a particular method must be distinct with respect to the parameterized fields. If two statements assigned to a method have the same number of parameterized fields with matching key names, then an exception will be thrown during the bean's initializtion.  For example, these two CQL statements, when assigned to a client bean, will result in an exception. 
 
 ````
