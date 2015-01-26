@@ -19,9 +19,9 @@ Client Bean (org.metis.cassandra.Client)
 
 The client bean is a thread-safe bean that is used for accessing a Cassandra cluster, a keyspace within the cluster, and any tables within the keyspace. The CQL component's URI is used to identify which client to use. For example, a URI of `cql:user` specifies the client bean with an id of "user", which may be used for accessing the user table in some Cassandra keyspace. Also see [Client Mapper](#clientmapper) for using ant-style pattern matching to identify a client bean. 
 
-Each client bean that you define is assigned one or more CQL statements, which can be any combination of SELECT, UPDATE, DELETE, and INSERT. The specified method, in combination with input parameters (key:value pairs), are used to identify which of the client's CQL statements are to be used for the corresponding request (i.e., Camel in message). The default method is SELECT, and if there are no input parameters, then the CQL statement not having any parameterized fields (see below) will be chosen. The method is specified in the Camel Exchange's input message via a header called, "**metis.cassandra.method**". The input parameters are passed in via the in-message's body (a.k.a., payload) as either a Map, List of Maps, or JSON object. Again, if you don't specify a method, the default SELECT is used. A response for a InOut MEP is sent back as a List of Maps. So through a single Camel route, you can invoke any of the CQL statements that are assigned to a particular client. This, therefore, precludes the route from getting nailed to any one particular CQL statement. Here's a snippet of XML that defines a client bean called "user". 
+Each client bean that you define is assigned one or more CQL statements, which can be any combination of SELECT, UPDATE, DELETE, and INSERT. The specified method, in combination with input parameters (key:value pairs), are used to identify which of the client's CQL statements are to be used for the corresponding request (i.e., Camel in message). The default method is SELECT, and if there are no input parameters, then the CQL statement not having any parameterized fields (see below) will be chosen. The method is specified in the Camel Exchange's input message via a header called, "**metis.cassandra.method**". The input parameters are passed in via the in-message's body (a.k.a., payload) as either a Map, List of Maps, or JSON object. If it is a JSON object, the object will get transformed to either a Map or List of Maps. Again, if you don't specify a method, the default SELECT is used. A response for a InOut MEP is sent back as a List of Maps. So through a single Camel route, you can invoke any of the CQL statements that are assigned to a particular client. This, therefore, precludes the route from getting nailed to any one particular CQL statement. Here's a snippet of XML that defines a client bean called "user". 
 
-````
+```xml
 <bean id="user" class="org.metis.cassandra.Client">
  <property name="cqls">
    <list>
@@ -37,7 +37,7 @@ Each client bean that you define is assigned one or more CQL statements, which c
  <property name="keyspace" value="videodb" />	
  <property name="clusterBean" ref="cluster1" />
 </bean>
-```` 
+``` 
 
 <u>cqls</u>
 
@@ -68,7 +68,7 @@ Even though they share one identical parameterized field, they do not have an eq
 
 When a request arrives, in the form of a Camel in-message that specifies a SELECT method, the example client's three assigned and **distinct** SELECT statements become candidates for the request. The input parameters (key:value pairs) in the in-message's payload or body are used to decide which of the three to use. For example, if the payload contains one Map with one key:value pair of `username:joe`, then the second SELECT CQL statement will be used. If the payload contains only one Map with one key:value pair of `user:joe`, then the third SELECT statement is used. If there is no payload (i.e., no key:value pairs), then the first CQL select statement is used because it has no parameterized fields. An exception is thrown if a match cannot be found. 
 
-<u>**If the payload comprises a list of maps, then all of the maps in the payload must have the same set of keys! </u>** If there is a list of maps, then it represents a batch UPDATE, INSERT, or DELETE. 
+<u>**If the payload comprises a list of maps, then all of the maps in the payload must have the same set of keys! </u>** If there is a list of maps, then it represents a batch UPDATE, INSERT, or DELETE. A list of maps cannot be used for a SELECT.  
 
 <u>keyspace</u>
 
@@ -84,7 +84,7 @@ The **clusterBean** property references a [ClusterBean](#clusterbean) within the
 ----
 The optional client mapper is used for mapping URIs to Cassandra clients that are defined in the Spring XML application context; the mapper uses [ant-style pattern matching](https://ant.apache.org/manual/dirtasks.html). If a mapper does not exist, then the URIs will have to directly map to a client. For example, "cql:user" will directly map to the client called "user". If the mapper below is used, then "cql:videouser" will be mapped to the "videoevent" client. 
 
-````
+```xml
 <bean id="handlerMapping" class="org.metis.cassandra.ClientMapper">
   <property name="mappings">
 	<value>
@@ -93,7 +93,7 @@ The optional client mapper is used for mapping URIs to Cassandra clients that ar
 	</value>
   </property>
 </bean>
-````
+```
 So given the above mappings, all of the following URIs will get mapped to the client with an ID of 'videoevent':
 
 - cql:video
@@ -107,7 +107,7 @@ You can only have one client mapper per Spring XML application context.
 ----
 A cluster bean, in combination with supporting beans, is used for configuring an instance of a Cassandra Java driver, which is used to access a Cassandra cluster. Each client bean in the Spring context must be wired to a cluster bean. You can define any number of cluster beans; each used for accessing a different Cassandra cluster. 
 
-````
+```xml
 <bean id="cluster1" class="org.metis.cassandra.ClusterBean">
 	<property name="clusterName" value="myCluster"/> 
 	<property name="clusterNodes" value="127.0.0.1" />
@@ -146,8 +146,7 @@ A cluster bean, in combination with supporting beans, is used for configuring an
 		<property name="minSimultaneousRequests" value="3" />
 </bean>
 <bean id="socketOptions" class="com.datastax.driver.core.SocketOptions"/>
-	
-````
+```
 
 <u>clusterName</u>
 
