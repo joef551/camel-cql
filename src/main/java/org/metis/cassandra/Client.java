@@ -265,9 +265,10 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 		List<Map<Object, Object>> listMap = null;
 		Object payLoad = inMsg.getBody();
 		if (payLoad != null) {
+			
 			// if payload is a stream or string, then it must be in the form of
-			// a JSON object, which then needs to be transformed into a List of
-			// Maps
+			// a JSON object, which then needs to be transformed into a Map or
+			// List of Maps
 			if (payLoad instanceof InputStream) {
 				LOG.trace(getBeanName()
 						+ ":camelProcess: received body as InputStream");
