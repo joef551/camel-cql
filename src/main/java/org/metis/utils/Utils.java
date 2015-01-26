@@ -242,41 +242,7 @@ public class Utils {
 		return sb.toString();
 	}
 
-
-	/**
-	 * This method strips out leading '{' and trailing '}' characters. It also
-	 * trims the string of leading and trailing spaces.
-	 * 
-	 * @param callStr
-	 * @return
-	 */
-	public static String stripCall(String callStr)
-			throws IllegalArgumentException {
-
-		if (callStr == null || callStr.length() == 0) {
-			throw new IllegalArgumentException(
-					"invalid SQL statement - callable statement "
-							+ "is null or 0 length");
-		}
-
-		callStr = callStr.trim();
-		if ((callStr.startsWith(LEFT_BRACE_STR) && !callStr
-				.endsWith(RIGHT_BRACE_STR))
-				|| (!callStr.startsWith(LEFT_BRACE_STR) && callStr
-						.endsWith(RIGHT_BRACE_STR))) {
-			throw new IllegalArgumentException(
-					"invalid SQL statement - a callable statement must have "
-							+ "'{' and '}' as leading and trailing chars");
-		}
-		if (callStr.startsWith(LEFT_BRACE_STR)) {
-			callStr = callStr.substring(1);
-		}
-		if (callStr.endsWith(RIGHT_BRACE_STR)) {
-			callStr = callStr.substring(0, callStr.length() - 1);
-		}
-		return callStr.trim();
-	}
-
+	
 	/**
 	 * Used for dumping the stack trace
 	 * 
@@ -366,6 +332,11 @@ public class Utils {
 		return byteArrayToHexString(md.digest());
 	}
 
+	/**
+	 * 
+	 * @param inObj
+	 * @return
+	 */
 	public static Object objToString(Object inObj) {
 		if (inObj == null) {
 			return null;
