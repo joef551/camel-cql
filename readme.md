@@ -14,6 +14,8 @@ Configuration
 
 A Cassandra CQL component is configured through an external Spring XML file (Spring application context), which by default is called, "cassandra.xml" and must reside in the class path. In that file, you define and configure the bean objects described in the following subsections. To override the default "cassandra.xml" file name, use the **metis.cassandra.spring.context** system property. 
 
+** In Progress **: making the external cassandra.xml optional and have all bean definitions reside within the same XML file that defines the Camel routes. 
+
 Client Bean (org.metis.cassandra.Client)
 ----
 
