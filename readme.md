@@ -12,16 +12,42 @@ Where "clientName" uniquely identifies a Cassandra client bean.
 Configuration
 ====
 
-A Cassandra CQL component is configured through an external Spring XML file (Spring application context), which by default is called, "cassandra.xml" and must reside in the class path. In that file, you define and configure the bean objects described in the following subsections. To override the default "cassandra.xml" file name, use the **metis.cassandra.spring.context** system property. 
+A Cassandra CQL component (org.metis.cassandra.CqlComponent) is configured through either an external Spring XML file (Spring application context), which by default is called, "cassandra.xml" and must reside in the class path, or the Spring XML file that includes the Camel context and routes. As an example of the latter, see the file called "camel1.xml" in the project's test resources directory.  In either of the two approaches, you define and configure the bean objects described in the following subsections. 
 
-** In Progress **: making the external cassandra.xml optional and have all bean definitions reside within the same XML file that defines the Camel routes. 
+To override the default "cassandra.xml" file name, use the **metis.cassandra.spring.context** system property or define a CqlComponent bean as follows.
+
+```xml
+<bean id="cql1" class="org.metis.cassandra.CqlComponent">
+ <property name="contextFileName" value="mycfg.xml" />
+</bean>
+<camelContext xmlns="http://camel.apache.org/schema/spring">
+  <route id="camel1-route">
+ 	<from uri="timer://seda1" />
+	<to uri="cql1:user"/>
+  </route>
+</camelContext>
+``` 
+
 
 Client Bean (org.metis.cassandra.Client)
 ----
 
-The client bean is a thread-safe bean that is used for accessing a Cassandra cluster, a keyspace within the cluster, and any tables within the keyspace. The CQL component's URI is used to identify which client to use. For example, a URI of `cql:user` specifies the client bean with an id of "user", which may be used for accessing the user table in some Cassandra keyspace. Also see [Client Mapper](#clientmapper) for using ant-style pattern matching to identify a client bean. 
+The client bean is a thread-safe component that is used by the CqlComponent for accessing a Cassandra cluster, a keyspace within the cluster, and any tables within the keyspace. You can define any number of client beans. The CQL component's URI is used to identify which client bean to use. For example, a URI of `cql:user` specifies the client bean with an id of "user", which may logically be used for accessing the "user"" table in a Cassandra keyspace. Also see [Client Mapper](#clientmapper) for using ant-style pattern matching to identify a client bean. 
 
-Each client bean that you define is assigned one or more CQL statements, which can be any combination of SELECT, UPDATE, DELETE, and INSERT. The specified method, in combination with input parameters (key:value pairs), are used to identify which of the client's CQL statements are to be used for the corresponding request (i.e., Camel in message). The default method is SELECT, and if there are no input parameters, then the CQL statement not having any parameterized fields (see below) will be chosen. The method is specified in the Camel Exchange's input message via a header called, "**metis.cassandra.method**". The input parameters are passed in via the in-message's body (a.k.a., payload) as either a Map, List of Maps, or JSON object. If it is a JSON object, the object will get transformed to either a Map or List of Maps. Again, if you don't specify a method, the default SELECT is used. A response for a InOut MEP is sent back as a List of Maps. So through a single Camel route, you can invoke any of the CQL statements that are assigned to a particular client. This, therefore, precludes the route from getting nailed to any one particular CQL statement. Here's a snippet of XML that defines a client bean called "user". 
+Each client bean that you define is assigned one or more CQL statements, which can be any combination of SELECT, UPDATE, DELETE, and INSERT. The incoming request message (i.e., Camel in message) specifies a method, as well as input parameters (key:value pairs). The combination of specified method and input parameters is used to identify which of the client's CQL statements are to be used for the corresponding request message. The method is specified in the Camel Exchange's input message via a header called, "**metis.cassandra.method**". If that header is not present, the client will fall back on a default method. The default method can be either injected into the client or you can have the client choose a default method based on its injected CQL statements. You can inject the default method via the 'defaultMethod' property. For exmaple:
+
+```xml
+<bean id="user" class="org.metis.cassandra.Client">
+  ...
+   <property name="defaultMethod" value="select" />  
+  ...
+</bean> 	
+```
+If a default method is not injected, the client will select one based on the CQL statements that have been specified. If the injected CQL statements include any combination of methods (e.g., SELECT and DELETE), the client will fall back on SELECT. If the injected CQLs comprise just one method, then that method will be the default method. For example, if all the injected CQL statements are of type DELETE, then DELETE will be the default method for the client. However, if there are CQL statements for both SELECT and DELETE, then SELECT will be the chosen default method.  
+ 
+If the incoming request message (i.e., message body in the incoming Camel exchange) does not include input parameters, then the CQL statement not having any parameterized fields (see below) will be chosen.  The input parameters are passed in  as either a Map, List of Maps, or JSON object. If it is a JSON object, the object will be transformed to either a Map or List of Maps. Please note that all incoming Camel exchanges must be have the **InOut** message exchange pattern (MEP). The response message (Camel out message) is sent back as a List of Maps. 
+
+So through a single Camel route, you can invoke any of the CQL statements that are assigned to a particular client. This, therefore, precludes the route from getting nailed to any one particular CQL statement for it is the method and input parameters that decide which CQL statement will be used. Here's a snippet of XML that defines a client bean called "user". 
 
 ```xml
 <bean id="user" class="org.metis.cassandra.Client">
@@ -41,9 +67,10 @@ Each client bean that you define is assigned one or more CQL statements, which c
 </bean>
 ``` 
 
+
 <u>cqls</u>
 
-The **cqls** property is used to assign the client bean one or more CQL statements. In the example above, the client bean has been assigned five CQL statements: three selects, one insert, and one delete. 
+The **cqls** property is used to assign the client bean one or more CQL statements. In the example above, the client bean has been assigned five CQL statements: three selects, one insert, and one delete. The default query method for this client is SELECT because the injected list of CQL statements are a combination of different methods. 
 
 Note that four of the statements have parts delimited by backticks (e.g., \`list:text:email\`). These are *parameterized fields* that comprise 2 or 3 subfields, which are delimited by a ":". Parameterized fields are used for binding input parameters to prepared CQL statements. So any CQL statement with a parameterized field is treated as a CQL prepared statement. The first subfield (from right-to-left) of a parameterized field is required, and it specifies the name of the input parameter that corresponds to the field. In other words, it must match the key of a key:value pair that is passed in via the Camel in-message's body or payload. In the previous example, 'email' is the name of the input parameter. The next subfield is the type of input parameter, and it must match one of the Cassandra [data types](http://www.datastax.com/drivers/java/2.0/com/datastax/driver/core/DataType.Name.html). The last subfield, which is optional, is used to specify a collection (list, map, or set). Here are a couple of examples:
 
