@@ -15,11 +15,14 @@ package org.metis.cassandra;
 
 import java.io.File;
 import java.util.Map;
+import java.util.Set;
 
 import static org.metis.utils.Constants.*;
+
 import org.apache.camel.CamelContext;
 import org.apache.camel.Endpoint;
 import org.apache.camel.impl.DefaultComponent;
+import org.apache.camel.spi.Registry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
@@ -181,6 +184,9 @@ public class CqlComponent extends DefaultComponent {
 	 * @return String file name
 	 */
 	public String getContextFileName() {
+		if (myContextFileName == null) {
+			myContextFileName = dfltContextFileName;
+		}
 		return myContextFileName;
 	}
 
@@ -242,6 +248,10 @@ public class CqlComponent extends DefaultComponent {
 		return startMonitor;
 	}
 
+	public void setStartMonitor(boolean startMonitor) {
+		this.startMonitor = startMonitor;
+	}
+
 	/**
 	 * Return a boolean, which indicates whether the component was instructed to
 	 * monitor its Spring context file.
@@ -249,7 +259,10 @@ public class CqlComponent extends DefaultComponent {
 	 * @return boolean
 	 */
 	public boolean isStartMonitor() {
-		return getStartMonitor().booleanValue();
+		if (startMonitor == null) {
+			startMonitor = new Boolean(dfltStartMonitor);
+		}
+		return this.startMonitor;
 	}
 
 	/**
@@ -420,49 +433,68 @@ public class CqlComponent extends DefaultComponent {
 	// XML file for this component.
 	private void initComponent() throws Exception {
 
-		if (LOG.isTraceEnabled()) {
-			LOG.trace("initComponent: Component has not yet been initialized");
-			LOG.trace("initComponent: Using this context file name: "
-					+ dfltContextFileName);
+		if (LOG.isDebugEnabled()) {
+			LOG.debug("initComponent: Component has not yet been initialized");
+			LOG.debug("initComponent: Using this context file name: "
+					+ getContextFileName());
 		}
 
 		ConfigurableApplicationContext cassandraContext = null;
+		Registry registry = null;
 
-		// load the spring application context, which should be somewhere
-		// in the application's classpath
-		if (myContextFileName == null) {
-			myContextFileName = dfltContextFileName;
-		}
 		try {
 			cassandraContext = new ClassPathXmlApplicationContext(
-					myContextFileName);
+					getContextFileName());
 			setClients(cassandraContext.getBeansOfType(Client.class));
+			LOG.debug("initComponent: Using ConfigurableApplicationContext");
 		} catch (BeansException exc) {
-			LOG.error("initComponent: caught this exception while "
+			LOG.warn("initComponent: caught this exception while "
 					+ "attempting to load spring context file: "
 					+ exc.toString());
-			throw exc;
+			// throw exc;
 		}
 
 		if (getClients() == null || getClients().isEmpty()) {
-			cassandraContext.close();
-			throw new Exception(
-					"there are no beans of type Client in the Spring XML file");
+			if (cassandraContext != null) {
+				cassandraContext.close();
+				cassandraContext = null;
+			}
+			LOG.warn("initComponent: unable to find Client beans in "
+					+ "Spring XML file or file not specified or not found ... "
+					+ "looking in Camel registry");
+
+			// external cassandra.xml most probably was not found
+			// look for client beans in this route's registry
+			registry = getCamelContext().getRegistry();
+			setClients(registry.findByTypeWithName(Client.class));
+			if (getClients() == null || getClients().isEmpty()) {
+				throw new Exception(
+						"there are no beans of type Client in neither "
+								+ "Spring XML nor Camel registry");
+			} else {
+				LOG.debug("initComponent: clients loaded from registry");
+			}
 		}
 
-		// now that the context has been successfully loaded, create a new
-		// profile and continue the init process
-		setComponentProfile(new ComponentProfile(cassandraContext,
-				myContextFileName, this));
-
-		initClientMapper(cassandraContext);
+		// if using an external cfg file, create a profile for this component
+		// and continue the init process
+		if (cassandraContext != null) {
+			setComponentProfile(new ComponentProfile(cassandraContext,
+					myContextFileName, this));
+			initClientMapper(cassandraContext);
+		} else {
+			// there' no external cfg file, everything is within the same file
+			// that includes the camel context
+			setComponentProfile(new ComponentProfile(this));
+			initClientMapper(registry);
+			setStartMonitor(false);
+		}
 		initProfileMonitor();
-
 	}
 
 	/**
-	 * Initialize the ClientMappers used by this component. Note that this
-	 * initial implementation only supports one mapper.
+	 * Initialize the ClientMappers from Spring XML. Note that this initial
+	 * implementation only supports one mapper.
 	 * <p>
 	 */
 	private void initClientMapper(
@@ -478,6 +510,28 @@ public class CqlComponent extends DefaultComponent {
 		if (clientMapper != null) {
 			getComponentProfile().setClientMapper(clientMapper);
 			LOG.trace("initClientMapper: using a client mapper");
+		} else {
+			LOG.trace("initClientMapper: not using a client mapper");
+		}
+	}
+
+	/**
+	 * Initialize the ClientMappers from Camel registry. Note that this initial
+	 * implementation only supports one mapper.
+	 * <p>
+	 */
+	private void initClientMapper(Registry registry) throws Exception {
+		Set<ClientMapper> mappers = null;
+		try {
+			// find the one client mapper
+			mappers = registry.findByType(ClientMapper.class);
+		} catch (Exception ignore) {
+		}
+
+		if (mappers != null && !mappers.isEmpty()) {
+			Object objs[] = mappers.toArray();
+			getComponentProfile().setClientMapper((ClientMapper) objs[0]);
+			LOG.trace("initClientMapper: using a client mapper from registry");
 		} else {
 			LOG.trace("initClientMapper: not using a client mapper");
 		}
@@ -515,6 +569,9 @@ public class CqlComponent extends DefaultComponent {
 	 *            the clients to set
 	 */
 	public void setClients(Map<String, Client> clients) {
+		if (clients == null || clients.isEmpty()) {
+			return;
+		}
 		this.clients = clients;
 	}
 

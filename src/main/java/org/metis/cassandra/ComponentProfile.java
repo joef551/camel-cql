@@ -24,8 +24,8 @@ import org.springframework.context.ConfigurableApplicationContext;
 
 /**
  * This class is used as a profile container, of sorts, for an instance of a
- * CqlComponent. Every time someone modifies the component's Spring XML
- * file (i.e., cassandra.xml) the component adopts a new profile. It is meant to
+ * CqlComponent. Every time someone modifies the component's Spring XML file
+ * (i.e., cassandra.xml) the component adopts a new profile. It is meant to
  * support on-the-fly updating of the component's Spring XML file.
  * 
  * @author jfernandez
@@ -67,6 +67,10 @@ public class ComponentProfile extends ServiceSupport implements Runnable {
 			String myContextFileName, CqlComponent cqlComponent) {
 		this.cassandraContext = cassandraContext;
 		this.myContextFileName = myContextFileName;
+		this.cqlComponent = cqlComponent;
+	}
+
+	protected ComponentProfile(CqlComponent cqlComponent) {
 		this.cqlComponent = cqlComponent;
 	}
 
@@ -144,6 +148,9 @@ public class ComponentProfile extends ServiceSupport implements Runnable {
 	// as not to preclude the JVM from exiting! Also give the thread the
 	// lowest possible priority.
 	protected void doStart() throws Exception {
+		if (cassandraContext == null) {
+			return;
+		}
 		runner = new Thread(this, "Cassandra Component Profile: " + toString());
 		runner.setDaemon(true);
 		runner.setPriority(Thread.MIN_PRIORITY);
@@ -271,7 +278,8 @@ public class ComponentProfile extends ServiceSupport implements Runnable {
 	}
 
 	/**
-	 * @param clientMapper the clientMapper to set
+	 * @param clientMapper
+	 *            the clientMapper to set
 	 */
 	public void setClientMapper(ClientMapper clientMapper) {
 		this.clientMapper = clientMapper;
