@@ -22,7 +22,7 @@ To override the default "cassandra.xml" file name, use the **metis.cassandra.spr
 </bean>
 <camelContext xmlns="http://camel.apache.org/schema/spring">
   <route id="camel1-route">
- 	<from uri="timer://seda1" />
+ 	<from uri="seda:cassy" />
 	<to uri="cql1:user"/>
   </route>
 </camelContext>
