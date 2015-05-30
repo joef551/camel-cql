@@ -34,7 +34,7 @@ Client Bean (org.metis.cassandra.Client)
 
 The client bean is a thread-safe component that is used by the CqlComponent for accessing a Cassandra cluster, a keyspace within the cluster, and any tables within the keyspace. You can define any number of client beans. The CQL component's URI is used to identify which client bean to use. For example, a URI of `cql:user` specifies the client bean with an id of "user", which may logically be used for accessing the "user"" table in a Cassandra keyspace. Also see [Client Mapper](#clientmapper) for using ant-style pattern matching to identify a client bean. 
 
-Each client bean that you define is assigned one or more CQL statements, which can be any combination of SELECT, UPDATE, DELETE, and INSERT. The incoming request message (i.e., Camel in message) specifies a method, as well as input parameters (key:value pairs). The combination of specified method and input parameters is used to identify which of the client's CQL statements are to be used for the corresponding request message. The method is specified in the Camel Exchange's input message via a header called, "**metis.cassandra.method**". If that header is not present, the client will fall back on a default method. The default method can be either injected into the client or you can have the client choose a default method based on its injected CQL statements. You can inject the default method via the 'defaultMethod' property. For exmaple:
+Each client bean that you define is assigned one or more CQL statements, which can be any combination of SELECT, UPDATE, DELETE, and INSERT. The incoming request message (i.e., Camel in-message) specifies a method, as well as input parameters (key:value pairs). The combination of specified method and input parameters is used to identify which of the client's CQL statements are to be used for the corresponding request message. The method is specified in the Camel Exchange's input message via a header called, "**metis.cassandra.method**". If that header is not present, the client will fall back on a default method. The default method can be either injected into the client or you can have the client choose a default method based on its injected CQL statements. You can inject the default method via the 'defaultMethod' property. For example:
 
 ```xml
 <bean id="user" class="org.metis.cassandra.Client">
@@ -67,12 +67,11 @@ So through a single Camel route, you can invoke any of the CQL statements that a
 </bean>
 ``` 
 
-
 <u>cqls</u>
 
-The **cqls** property is used to assign the client bean one or more CQL statements. In the example above, the client bean has been assigned five CQL statements: three selects, one insert, and one delete. The default query method for this client is SELECT because the injected list of CQL statements are a combination of different methods. 
+The **cqls** property is used to assign the client bean one or more CQL statements. In the example above, the client bean has been assigned five CQL statements: three selects, one insert, and one delete. The default query method for this client is SELECT because the injected list of CQL statements include a combination of different methods. 
 
-Note that four of the statements have parts delimited by backticks (e.g., \`list:text:email\`). These are *parameterized fields* that comprise 2 or 3 subfields, which are delimited by a ":". Parameterized fields are used for binding input parameters to prepared CQL statements. So any CQL statement with a parameterized field is treated as a CQL prepared statement. The first subfield (from right-to-left) of a parameterized field is required, and it specifies the name of the input parameter that corresponds to the field. In other words, it must match the key of a key:value pair that is passed in via the Camel in-message's body or payload. In the previous example, 'email' is the name of the input parameter. The next subfield is the type of input parameter, and it must match one of the Cassandra [data types](http://www.datastax.com/drivers/java/2.0/com/datastax/driver/core/DataType.Name.html). The last subfield, which is optional, is used to specify a collection (list, map, or set). Here are a couple of examples:
+Note that four of the statements have fields delimited by backticks (e.g., \`list:text:email\`). These are *parameterized fields* that comprise 2 or 3 subfields, which are delimited by a ":". Parameterized fields are used for binding input parameters to these CQL statements. So any CQL statement with a parameterized field is treated as a CQL prepared statement. The first subfield (from right-to-left) of a parameterized field is required, and it specifies the name of the input parameter that corresponds to the field. In other words, it must match the key of a key:value pair that is passed in via the Camel in-message's body or payload. In the previous example, 'email' is the name of the input parameter. The next subfield is the type of input parameter, and it must match one of the Cassandra [data types](http://www.datastax.com/drivers/java/2.0/com/datastax/driver/core/DataType.Name.html). The last subfield, which is optional, is used to specify a collection (list, map, or set). Here are a couple of examples:
 
 1. **\`list:text:email\`** is a parameterized field that is matched up to an input parameter whose key is 'email' and whose value is a list of ascii text strings. 
 2. **\`text:username\`** is a parameterized field that is matched up to an input parameter whose key is 'username' and whose value is an ascii text string. 
@@ -81,7 +80,7 @@ Note that four of the statements have parts delimited by backticks (e.g., \`list
 Note from [1] about using collections. <i>"Use collections, such as Set, List or Map, when you want to store or denormalize a small amount of data. Values of items in collections are limited to 64K. Other limitations also apply. Collections work well for storing data such as the phone numbers of a user and labels applied to an email. If the data you need to store has unbounded growth potential, such as all the messages sent by a user or events registered by a sensor, do not use collections. Instead, use a table having a compound primary key and store data in the clustering columns"".</i>
 
 
-All CQL statements for a particular method must be distinct with respect to the parameterized fields. If two statements assigned to a method have the same number of parameterized fields with matching key names, then an exception will be thrown during the bean's initializtion.  For example, these two CQL statements, when assigned to a client bean, will result in an exception. 
+All CQL statements for a particular method must be distinct with respect to the parameterized fields. If two statements assigned to a method have the same number of parameterized fields with matching key names, then an exception will be thrown during the bean's initialization.  For example, these two CQL statements, when assigned to a client bean, will result in an exception. 
 
 ````
 select username from username_video_index where username =`text:username`
@@ -134,7 +133,7 @@ You can only have one client mapper per Spring XML application context.
 
 [Cluster Bean](id:clusterbean) (org.metis.cassandra.ClusterBean)
 ----
-A cluster bean, in combination with supporting beans, is used for configuring an instance of a Cassandra Java driver, which is used to access a Cassandra cluster. Each client bean in the Spring context must be wired to a cluster bean. You can define any number of cluster beans; each used for accessing a different Cassandra cluster. 
+A cluster bean, in combination with its supporting beans, is used for configuring an instance of a Cassandra Java driver, which is used to access a Cassandra cluster. Each client bean in the Spring context must be wired to a cluster bean. You can define any number of cluster beans; each used for accessing a different Cassandra cluster. 
 
 ```xml
 <bean id="cluster1" class="org.metis.cassandra.ClusterBean">
@@ -152,7 +151,7 @@ A cluster bean, in combination with supporting beans, is used for configuring an
 	</property>		
 	<property name="fetchSize" value="5000"/> 
 	<property name="consistencyLevel" value="ONE"/>
-	<property name="serialConsistencyLevel" value="SERIAL"/> 		
+	<property name="serialConsistencyLevel" value="SERIAL"/> 
 </bean>
 
 <bean id="roundRobin" class="com.datastax.driver.core.policies.RoundRobinPolicy" />
@@ -187,23 +186,23 @@ The **clusterNodes** property is used for specifying a comma-separated list of i
 
 <u>loadBalancingPolicy</u>
 
-The **loadBalancingPolicy** property is used to specify the load balancing policy to use on the discovered nodes. The default is DCAwareRoundRobinPolicy. In the above example, the default has been overriden with the RoundRobinPolicy. These are all the possible load balancing policies as of this writing: DCAwareRoundRobinPolicy, LatencyAwarePolicy, RoundRobinPolicy, TokenAwarePolicy, and  WhiteListPolicy. For more on the load balancing policy, click [here](http://www.datastax.com/drivers/java/2.0/com/datastax/driver/core/policies/LoadBalancingPolicy.html).
+The **loadBalancingPolicy** property is used to specify the load balancing policy to use on the discovered nodes. The default is DCAwareRoundRobinPolicy. In the above example, the default has been overriden with the RoundRobinPolicy. These are all the possible load balancing policies as of this writing: DCAwareRoundRobinPolicy, LatencyAwarePolicy, RoundRobinPolicy, TokenAwarePolicy, and  WhiteListPolicy. For more on the load balancing policy, click [here](http://www.datastax.com/drivers/java/2.1/com/datastax/driver/core/policies/LoadBalancingPolicy.html).
 
 <u>reconnectionPolicy</u>
 
-The **reconnectionPolicy** property is used to specify the [ReconnectionPolicy](http://www.datastax.com/drivers/java/2.0/com/datastax/driver/core/policies/ReconnectionPolicy.html) to use on the discovered nodes. The default is [ExponentialReconnectionPolicy](http://www.datastax.com/drivers/java/2.0/index.html?com/datastax/driver/core/policies/LoadBalancingPolicy.html), which is usually adequate. These are all the possible reconnect policies as of this writing: ConstantReconnectionPolicy and ExponentialReconnectionPolicy. For more on the reconnect policy, click [here](http://www.datastax.com/drivers/java/2.0/com/datastax/driver/core/policies/LoadBalancingPolicy.html).
+The **reconnectionPolicy** property is used to specify the [ReconnectionPolicy](http://www.datastax.com/drivers/java/2.1/com/datastax/driver/core/policies/ReconnectionPolicy.html) to use on the discovered nodes. The default is [ExponentialReconnectionPolicy](http://www.datastax.com/drivers/java/2.1/index.html?com/datastax/driver/core/policies/LoadBalancingPolicy.html), which is usually adequate. These are all the possible reconnect policies as of this writing: ConstantReconnectionPolicy and ExponentialReconnectionPolicy. For more on the reconnect policy, click [here](http://www.datastax.com/drivers/java/2.1/com/datastax/driver/core/policies/LoadBalancingPolicy.html).
 
 <u>protocolOptions</u>
 
-The **protocolOptions** property is used for specifying the [ProtocolOptions](http://www.datastax.com/drivers/java/2.0/index.html?com/datastax/driver/core/policies/ReconnectionPolicy.html) to use for the discovered nodes. If you don't specify one, a default ProtocolOption is used. ProtocolOption is typically used for overriding the default port number of  9042. 
+The **protocolOptions** property is used for specifying the [ProtocolOptions](http://docs.datastax.com/en/drivers/java/2.1/com/datastax/driver/core/ProtocolOptions.html) to use for the discovered nodes. If you don't specify one, a default ProtocolOption is used. ProtocolOption is typically used for overriding the default port number of  9042. 
 
 <u>listOfPoolingOptions</u>
 
-The **listOfPoolingOptions** property specifies a list of [PoolingOptions](http://www.datastax.com/drivers/java/2.0/com/datastax/driver/core/PoolingOptions.html) for the connections to the cluster nodes.	There should only be two PoolingOption beans in the list; one for REMOTE and the other for LOCAL nodes. The driver uses connections in an asynchronous manner; meaning that multiple requests can be simultaneously submitted on, or multiplexed through, the same connection. Thus the driver only needs to maintain a relatively small number of connections to each Cassandra node. The pooling option is used to specfiy options that allow the driver to control how many connections are kept to the Cassandra nodes. For each node, the driver keeps a core pool of connections open at all times (coreConnections). If the use of those core connections reaches a configurable threshold (maxSimultaneousRequests), more connections are created up to the configurable maximum number of connections (maxConnections)). When the pool exceeds the maximum number of connections, connections in excess are reclaimed if the use of opened connections drops below the configured threshold (minSimultaneousRequests). You want to have a PoolingOption bean for LOCAL and REMOTE (HostDistance) nodes. For IGNORED nodes, the default for all those settings is 0 and cannot be changed. 
+The **listOfPoolingOptions** property specifies a list of [PoolingOptions](http://www.datastax.com/drivers/java/2.1/com/datastax/driver/core/PoolingOptions.html) for the connections to the cluster nodes. There should only be two PoolingOption beans in the list; one for REMOTE and the other for LOCAL nodes. The driver uses connections in an asynchronous manner; meaning that multiple requests can be simultaneously submitted on, or multiplexed through, the same connection. Thus the driver only needs to maintain a relatively small number of connections to each Cassandra node. The pooling option is used to specfiy options that allow the driver to control how many connections are kept to the Cassandra nodes. For each node, the driver keeps a core pool of connections open at all times (coreConnections). If the use of those core connections reaches a configurable threshold (maxSimultaneousRequests), more connections are created up to the configurable maximum number of connections (maxConnections)). When the pool exceeds the maximum number of connections, connections in excess are reclaimed if the use of opened connections drops below the configured threshold (minSimultaneousRequests). You want to have a PoolingOption bean for LOCAL and REMOTE (HostDistance) nodes. For IGNORED nodes, the default for all those settings is 0 and cannot be changed. 
 
 <u>socketOptions</u>
 
-The **socketOptions** property is used for specifying low-level [SocketOptions](http://www.datastax.com/drivers/java/2.0/com/datastax/driver/core/SocketOptions.html) (e.g., keepalive, solinger, etc.) for the connections to the cluster nodes. 
+The **socketOptions** property is used for specifying low-level [SocketOptions](http://www.datastax.com/drivers/java/2.1/com/datastax/driver/core/SocketOptions.html) (e.g., keepalive, solinger, etc.) for the connections to the cluster nodes. 
 
 <u>fetchSize</u>
 
@@ -211,7 +210,7 @@ Use the **fetchSize** property to set the default (5000) fetch size to use for S
 
 <u>consistencyLevel</u>
 
-Use the **consistencyLevel** property to set the default (ONE) consistency level to use for queries. To learn more about consistency levels click [here](http://www.datastax.com/documentation/cassandra/2.0/cassandra/dml/dml_config_consistency_c.html). During runtime, this default value can be overridden by assigning the Camel in-message the "**metis.cql.consistency.level**" header. 
+Use the **consistencyLevel** property to set the default (ONE) consistency level to use for queries. To learn more about consistency levels click [here](http://www.datastax.com/documentation/cassandra/2.1/cassandra/dml/dml_config_consistency_c.html). During runtime, this default value can be overridden by assigning the Camel in-message the "**metis.cql.consistency.level**" header. 
 
 <u>serialConsistencyLevel</u>
 
