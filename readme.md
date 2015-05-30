@@ -49,7 +49,7 @@ Each client bean that you define must be assigned one or more CQL statements, wh
 
 If a default method is not injected, the client will select one based on its injected CQL statements. If the injected CQL statements include any combination of methods (e.g., SELECT and DELETE), the client will fall back on SELECT. If the injected CQLs comprise just one method, then that method will be the default method. For example, if all the injected CQL statements are of type DELETE, then DELETE will be the default method for the client. However, if there are CQL statements for both SELECT and DELETE, then SELECT will be the chosen default method.  
  
-If the incoming request message does not include input parameters, then the CQL statement not having any parameterized fields (see below) will be chosen.  The input parameters are passed in  as either a Map, List of Maps, or JSON object. If it is a JSON object, the object will be transformed to either a Map or List of Maps. Please note that all incoming Camel exchanges must be have the **InOut** message exchange pattern (MEP). The response message (Camel out message) is sent back as a List of Maps. 
+If the incoming request message does not include input parameters, the CQL statement not having any parameterized fields (see below) will be chosen.  The input parameters are passed in  as either a Map, List of Maps, or JSON object. JSON objects are in the form of a String or Stream object. If it is a JSON object (i.e., in the form of a String or InputStream), the object will be transformed to either a Map or List of Maps. Please note that all incoming Camel exchanges must have the **InOut** message exchange pattern (MEP). The response message (Camel out message) is sent back as a List of Maps. 
 
 So through a single Camel route, you can invoke any of the CQL statements that are assigned to a particular client. This, therefore, precludes the route from getting nailed to any one particular CQL statement for it is the method and input parameters that decide which CQL statement will be used. Here's a snippet of XML that defines a client bean called "user". 
 
@@ -71,7 +71,7 @@ So through a single Camel route, you can invoke any of the CQL statements that a
 </bean>
 ``` 
 
-The following desscribes each of the client bean's properties. 
+The following describe each of the client bean's properties. 
 
 <u>cqls</u>
 
@@ -143,10 +143,17 @@ A cluster bean, in combination with its supporting beans, is used for configurin
 
 ```xml
 <bean id="cluster1" class="org.metis.cassandra.ClusterBean">
+	
 	<property name="clusterName" value="myCluster"/> 
 	<property name="clusterNodes" value="127.0.0.1" />
+	
+	<!-- Some of the driver's policies. If one is not specified it will be 
+	     defaulted. Please refer to the 2.1 driver's API documentaiton for a 
+	     complete list of policies -->
 	<property name="loadBalancingPolicy" ref="roundRobin" />
 	<property name="reconnectionPolicy" ref="reconnectionPolicy" />
+	<property name="retryPolicy" ref="retryPolicy" />
+	
 	<property name="protocolOptions" ref="protocolOptions" />
 	<property name="socketOptions" ref="socketOptions" />
 	<property name="listOfPoolingOptions">
@@ -158,10 +165,13 @@ A cluster bean, in combination with its supporting beans, is used for configurin
 	<property name="fetchSize" value="5000"/> 
 	<property name="consistencyLevel" value="ONE"/>
 	<property name="serialConsistencyLevel" value="SERIAL"/> 
+
 </bean>
 
 <bean id="roundRobin" class="com.datastax.driver.core.policies.RoundRobinPolicy" />
 <bean id="reconnectionPolicy" class="com.datastax.driver.core.policies.ExponentialReconnectionPolicy" />
+<bean id="retryPolicy" class="com.datastax.driver.core.policies.DowngradingConsistencyRetryPolicy" />
+
 <bean id="protocolOptions" class="com.datastax.driver.core.ProtocolOptions">
  	<constructor-arg name="port" value="9042"/> 
 </bean>
@@ -190,13 +200,17 @@ The **clusterName** property is used to override the default cluster name, which
 
 The **clusterNodes** property is used for specifying a comma-separated list of ip addresses for nodes in a Cassandra cluster. Note that all specified nodes must share the same port number. In the Cassandra vernacular, a node is also referred to as a cluster "contact point". The driver uses a cluster contact point to connect to the cluster and discover its topology. Only one node is required (the driver will automatically retrieve the addresses of the other nodes in the cluster); however, it is usually a good idea to provide more than one node, because if that single node is unavailable, the driver cannot connect to the Cassandra cluster. 
 
-<u>loadBalancingPolicy</u>
+<u>Policies</u>
 
-The **loadBalancingPolicy** property is used to specify the load balancing policy to use on the discovered nodes. The default is DCAwareRoundRobinPolicy. In the above example, the default has been overriden with the RoundRobinPolicy. These are all the possible load balancing policies as of this writing: DCAwareRoundRobinPolicy, LatencyAwarePolicy, RoundRobinPolicy, TokenAwarePolicy, and  WhiteListPolicy. For more on the load balancing policy, click [here](http://www.datastax.com/drivers/java/2.1/com/datastax/driver/core/policies/LoadBalancingPolicy.html).
+The different policies supported by the driver. The example cluster1 bean above depicts how these policies can be injected into the cluser bean.
 
-<u>reconnectionPolicy</u>
+- LoadBalancingPolicy
+- ReconnectionPolicy
+- RetryPolicy
+- AddressTranslater
+- SpeculativeExecutionPolicy
 
-The **reconnectionPolicy** property is used to specify the [ReconnectionPolicy](http://www.datastax.com/drivers/java/2.1/com/datastax/driver/core/policies/ReconnectionPolicy.html) to use on the discovered nodes. The default is [ExponentialReconnectionPolicy](http://www.datastax.com/drivers/java/2.1/index.html?com/datastax/driver/core/policies/LoadBalancingPolicy.html), which is usually adequate. These are all the possible reconnect policies as of this writing: ConstantReconnectionPolicy and ExponentialReconnectionPolicy. For more on the reconnect policy, click [here](http://www.datastax.com/drivers/java/2.1/com/datastax/driver/core/policies/LoadBalancingPolicy.html).
+Please refer to the 2.1 Java driver's API documentantion for a complete list of its policies and their descriptions. 
 
 <u>protocolOptions</u>
 
