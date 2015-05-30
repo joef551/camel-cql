@@ -85,6 +85,10 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 		}
 	}
 
+	// the default method used for this bean
+	private Method dfltMethod;
+	private String defaultMethod;
+
 	public Client() {
 	}
 
@@ -131,6 +135,7 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 		}
 
 		// create and validate the injected CQL statements
+		int defaultMethodFlag = 0;
 		if (!getCqls4Select().isEmpty()) {
 			setCqlStmnts4Select(new ArrayList<CqlStmnt>());
 			for (String cql : getCqls4Select()) {
@@ -150,6 +155,7 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 							+ cqlstmnt.getPreparedStr());
 				}
 			}
+			defaultMethodFlag |= 1;
 		}
 
 		if (!getCqls4Insert().isEmpty()) {
@@ -171,6 +177,8 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 							+ cqlstmnt.getPreparedStr());
 				}
 			}
+			// update the default method indicator
+			defaultMethodFlag |= 2;
 		}
 
 		if (!getCqls4Update().isEmpty()) {
@@ -192,6 +200,8 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 							+ cqlstmnt.getPreparedStr());
 				}
 			}
+			// update the default method indicator
+			defaultMethodFlag |= 4;
 		}
 
 		if (!getCqls4Delete().isEmpty()) {
@@ -213,7 +223,47 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 							+ cqlstmnt.getPreparedStr());
 				}
 			}
+			// update the default method indicator
+			defaultMethodFlag |= 8;
 		}
+
+		// determine the default method used for this client bean
+		if (getDefaultMethod() != null) {
+			// a default method string was injected, so grab it from the
+			// injected value
+			try {
+				Method method = Method.valueOf(getDefaultMethod());
+				setDfltMethod(method);
+			} catch (IllegalArgumentException e) {
+				throw new Exception(
+						getBeanName()
+								+ ":execute: This default method string is not allowed ["
+								+ getDefaultMethod() + "]");
+			}
+		} else {
+			// a default method was not injected, so determine the default
+			// method based on the injected CQLs
+			switch (defaultMethodFlag) {
+			case 1:
+				setDfltMethod(Method.SELECT);
+				break;
+			case 2:
+				setDfltMethod(Method.INSERT);
+				break;
+			case 4:
+				setDfltMethod(Method.UPDATE);
+				break;
+			case 8:
+				setDfltMethod(Method.DELETE);
+				break;
+			default:
+				setDfltMethod(Method.SELECT);
+			}
+			setDefaultMethod(getDfltMethod().toString());
+		}
+
+		LOG.debug(getBeanName() + ": Default method = " + getDfltMethod());
+
 		setRunning(true);
 	}
 
@@ -265,7 +315,7 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 		List<Map<Object, Object>> listMap = null;
 		Object payLoad = inMsg.getBody();
 		if (payLoad != null) {
-			
+
 			// if payload is a stream or string, then it must be in the form of
 			// a JSON object, which then needs to be transformed into a Map or
 			// List of Maps
@@ -347,8 +397,8 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 		if (inMethod == null || inMethod.isEmpty()) {
 			LOG.trace(getBeanName()
 					+ ":execute - method was not provided, defaulting to {}",
-					SELECT_STR);
-			inMethod = SELECT_STR;
+					getDfltMethod().toString());
+			inMethod = getDfltMethod().toString();
 		}
 
 		Method method = null;
@@ -840,6 +890,36 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 
 			}
 		}
+	}
+
+	/**
+	 * @return the dfltMethod
+	 */
+	public Method getDfltMethod() {
+		return dfltMethod;
+	}
+
+	/**
+	 * @param dfltMethod
+	 *            the dfltMethod to set
+	 */
+	public void setDfltMethod(Method dfltMethod) {
+		this.dfltMethod = dfltMethod;
+	}
+
+	/**
+	 * @return the defaultMethod
+	 */
+	public String getDefaultMethod() {
+		return defaultMethod;
+	}
+
+	/**
+	 * @param defaultMethod
+	 *            the defaultMethod to set
+	 */
+	public void setDefaultMethod(String defaultMethod) {
+		this.defaultMethod = defaultMethod;
 	}
 
 }

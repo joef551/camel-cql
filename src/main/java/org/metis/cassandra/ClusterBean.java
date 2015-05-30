@@ -37,6 +37,7 @@ import com.datastax.driver.core.policies.AddressTranslater;
 import com.datastax.driver.core.policies.ReconnectionPolicy;
 import com.datastax.driver.core.policies.RetryPolicy;
 import com.datastax.driver.core.ProtocolOptions.Compression;
+import com.datastax.driver.core.ProtocolVersion;
 
 /**
  * The ClusterBean is used for configuring an instance of the Cassandra Java
@@ -77,6 +78,7 @@ public class ClusterBean implements InitializingBean, BeanNameAware,
 	private String serialConsistency;
 	private String compression = Compression.NONE.toString();
 	private String clusterNodes;
+	
 
 	public ClusterBean() {
 	}
@@ -91,7 +93,7 @@ public class ClusterBean implements InitializingBean, BeanNameAware,
 		}
 
 		// 1. Set the MetricsOptions
-		// See http://www.datastax.com/drivers/java/2.0/index.html
+		// See http://www.datastax.com/drivers/java/2.1/index.html
 		setMetricsOptions(new MetricsOptions(isJmxReportingEnabled()));
 
 		// 2. Set any injected Policies. Those not injected will be defaulted.
@@ -112,6 +114,8 @@ public class ClusterBean implements InitializingBean, BeanNameAware,
 		}
 		setProtocolOptions(getProtocolOptions().setCompression(
 				getCompressionLevel()));
+		
+		//getProtocolOptions().
 
 		// 4. Set the pooling options
 		setPoolingOptions(new PoolingOptions());
@@ -379,7 +383,7 @@ public class ClusterBean implements InitializingBean, BeanNameAware,
 	/**
 	 * This can be a negative number, in which case the version used will be the
 	 * biggest version supported by the first node the driver connects to.
-	 * Otherwise, it must be either 1 or 2 to force using a particular protocol
+	 * Otherwise, it must be either 1, 2 or 3 to force using a particular protocol
 	 * version
 	 * 
 	 * @param protocolVersion
