@@ -91,7 +91,6 @@
 	</bean>
 
 	<bean id="cluster1" class="org.metis.cassandra.ClusterBean">
-
 		<property name="clusterName" value="myCluster" />
 		<property name="clusterNodes" value="127.0.0.1" />
 		<property name="loadBalancingPolicy" ref="roundRobin" />

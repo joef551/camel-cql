@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <beans xmlns="http://www.springframework.org/schema/beans"
-	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:util="http://www.springframework.org/schema/util"
-	xmlns:p="http://www.springframework.org/schema/p"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+	xmlns:util="http://www.springframework.org/schema/util"
+	xmlns:p="http://www.springframework.org/schema/p" 	
 	xsi:schemaLocation="http://www.springframework.org/schema/beans
            http://www.springframework.org/schema/beans/spring-beans-3.0.xsd 
+           http://www.springframework.org/schema/util 
+           http://www.springframework.org/schema/util/spring-util.xsd
            http://www.springframework.org/schema/util 
            http://www.springframework.org/schema/util/spring-util-3.0.xsd">
 
@@ -81,45 +84,82 @@
 	</bean>
 
 	<bean id="cluster1" class="org.metis.cassandra.ClusterBean">
-		<!-- <property name="clusterName" value="myCluster"/> -->
+		<property name="clusterName" value="myCluster" />
 		<property name="clusterNodes" value="127.0.0.1" />
 		<property name="loadBalancingPolicy" ref="roundRobin" />
 		<property name="reconnectionPolicy" ref="reconnectionPolicy" />
+		<property name="retryPolicy" ref="retryPolicy" />
+		<property name="metricsOptions" ref="metricsOptions" />
 		<property name="protocolOptions" ref="protocolOptions" />
 		<property name="socketOptions" ref="socketOptions" />
+		<property name="poolingOptions" ref="poolingOptions" />
 		<property name="listOfPoolingOptions">
 			<list>
 				<ref bean="localOption" />
 				<ref bean="remoteOption" />
 			</list>
 		</property>
-		<!-- <property name="fetchSize" value="5000" /> -->
-		<!-- <property name="consistencyLevel" value="ONE" /> -->
-		<!-- <property name="serialConsistencyLevel" value="SERIAL" /> -->
+		<property name="queryOptions" ref="queryOptions" />
 	</bean>
+
+	<!-- Referenced Beans -->
 	<bean id="roundRobin" class="com.datastax.driver.core.policies.RoundRobinPolicy" />
 	<bean id="reconnectionPolicy"
 		class="com.datastax.driver.core.policies.ExponentialReconnectionPolicy">
 		<constructor-arg type="long" value="10" />
 		<constructor-arg type="long" value="10000" />
 	</bean>
+	<bean id="retryPolicy"
+		class="com.datastax.driver.core.policies.DowngradingConsistencyRetryPolicy" />
+
+	<bean id="metricsOptions" class="com.datastax.driver.core.MetricsOptions">
+		<constructor-arg name="jmxEnabled" value="true" />
+	</bean>
 	<bean id="protocolOptions" class="com.datastax.driver.core.ProtocolOptions">
 		<constructor-arg name="port" value="9042" />
+		<!-- The protocolVersion can be null, in which case the version used will 
+			be the biggest version supported by the first node the driver connects to -->
+		<constructor-arg name="protocolVersion">
+			<bean id="protocolVersion" class="com.datastax.driver.core.ProtocolVersion"
+				factory-method="fromInt">
+				<constructor-arg value="2" />
+			</bean>
+		</constructor-arg>
+		<constructor-arg name="maxSchemaAgreementWaitSeconds"
+			value="2" />
+		<constructor-arg name="sslOptions">
+			<null />
+		</constructor-arg>
+		<constructor-arg name="authProvider">
+			<null />
+		</constructor-arg>
 	</bean>
+	<bean id="socketOptions" class="com.datastax.driver.core.SocketOptions" />
+	<bean id="poolingOptions" class="com.datastax.driver.core.PoolingOptions" />
 	<bean id="localOption" class="org.metis.cassandra.PoolingOption">
 		<property name="distance" value="local" />
-		<property name="coreConnections" value="5" />
-		<property name="maxConnections" value="10" />
-		<property name="minSimultaneousRequests" value="3" />
-		<property name="maxSimultaneousRequests" value="5" />
+		<property name="coreConnectionsPerHost" value="5" />
+		<property name="maxConnectionsPerHost" value="10" />
+		<property name="maxSimultaneousRequestsPerConnectionThreshold"
+			value="2" />
+		<property name="maxSimultaneousRequestsPerHostThreshold"
+			value="5" />
 	</bean>
 	<bean id="remoteOption" class="org.metis.cassandra.PoolingOption">
 		<property name="distance" value="remote" />
-		<property name="coreConnections" value="2" />
-		<property name="maxConnections" value="5" />
-		<property name="minSimultaneousRequests" value="3" />
-		<property name="maxSimultaneousRequests" value="5" />
+		<property name="coreConnectionsPerHost" value="2" />
+		<property name="maxConnectionsPerHost" value="10" />
+		<property name="maxSimultaneousRequestsPerConnectionThreshold"
+			value="2" />
+		<property name="maxSimultaneousRequestsPerHostThreshold"
+			value="5" />
 	</bean>
-	<bean id="socketOptions" class="com.datastax.driver.core.SocketOptions" />
+
+	<!-- An example of how to inject an Enum of ONE for the consistency level -->
+	<bean id="queryOptions" class="com.datastax.driver.core.QueryOptions">
+		<property name="consistencyLevel">
+			<util:constant static-field="com.datastax.driver.core.ConsistencyLevel.ONE" />
+		</property>
+	</bean>
 
 </beans>

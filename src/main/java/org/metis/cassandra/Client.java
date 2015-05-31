@@ -113,29 +113,41 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 
 		setCluster(getClusterBean().getCluster());
 
-		// get the session to this Client's keyspace. The session is
-		// thread-safe! the connect will throw a couple of Cassandra-specific
-		// exceptions
+		/*
+		 * A session holds connections to a Cassandra cluster, allowing it to be
+		 * queried. Each session maintains multiple connections to the cluster
+		 * nodes, provides policies to choose which node to use for each query
+		 * (round-robin on all nodes of the cluster by default), and handles
+		 * retries for failed query (when it makes sense), etc... Session
+		 * instances are thread-safe and usually a single instance is enough per
+		 * application. As a given session can only be "logged" into one
+		 * keyspace at a time (where the "logged" keyspace is the one used by
+		 * query if the query doesn't explicitely use a fully qualified table
+		 * name), it can make sense to create one session per keyspace used.
+		 * This is however not necessary to query multiple keyspaces since it is
+		 * always possible to use a single session with fully qualified table
+		 * name in queries.
+		 */
 		try {
-			setSession(getCluster().connect(getKeyspace()));
-		} catch (NoHostAvailableException exc) {
-			LOG.error(getBeanName()
+			// initialize the Cassandra session and put out information about it
+			getSession();
+			LOG.info(getBeanName() + ": cluster name = "
+					+ getSession().getCluster().getMetadata().getClusterName());
+			LOG.info(getBeanName()
+					+ ": all clluster hosts = "
+					+ getSession().getCluster().getMetadata().getAllHosts()
+							.toString());
+			LOG.info(getBeanName() + ": cluster partitioner = "
+					+ getSession().getCluster().getMetadata().getPartitioner());
+		} catch (Exception exc) {
+			LOG.warn(getBeanName()
 					+ ":unable to connect Cassandra during bean initialization, msg = "
 					+ exc.getMessage());
-			throw exc;
+			// throw exc;
 		}
-		
+
 		LOG.info(getBeanName() + ": clusterBean name = "
 				+ getClusterBean().getBeanName());
-
-		LOG.info(getBeanName() + ": cluster name = "
-				+ getSession().getCluster().getMetadata().getClusterName());
-		LOG.info(getBeanName()
-				+ ": all clluster hosts = "
-				+ getSession().getCluster().getMetadata().getAllHosts()
-						.toString());
-		LOG.info(getBeanName() + ": cluster partitioner = "
-				+ getSession().getCluster().getMetadata().getPartitioner());
 
 		// do some validation
 		if (getCqls4Select().isEmpty() && getCqls4Update().isEmpty()
@@ -149,7 +161,7 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 		if (!getCqls4Select().isEmpty()) {
 			setCqlStmnts4Select(new ArrayList<CqlStmnt>());
 			for (String cql : getCqls4Select()) {
-				CqlStmnt stmt = getCQLStmnt(cql, getSession());
+				CqlStmnt stmt = getCQLStmnt(cql);
 				if (stmt.isEqual(getCqlStmnts4Select())) {
 					throw new Exception(
 							"Injected CQL statements for SELECT are not distinct");
@@ -171,7 +183,7 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 		if (!getCqls4Insert().isEmpty()) {
 			setCqlStmnts4Insert(new ArrayList<CqlStmnt>());
 			for (String cql : getCqls4Insert()) {
-				CqlStmnt stmt = getCQLStmnt(cql, getSession());
+				CqlStmnt stmt = getCQLStmnt(cql);
 				if (stmt.isEqual(getCqlStmnts4Insert())) {
 					throw new Exception(
 							"Injected CQL statements for INSERT are not distinct");
@@ -194,7 +206,7 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 		if (!getCqls4Update().isEmpty()) {
 			setCqlStmnts4Update(new ArrayList<CqlStmnt>());
 			for (String cql : getCqls4Update()) {
-				CqlStmnt stmt = getCQLStmnt(cql, getSession());
+				CqlStmnt stmt = getCQLStmnt(cql);
 				if (stmt.isEqual(getCqlStmnts4Update())) {
 					throw new Exception(
 							"Injected CQL statements for UPDATE are not distinct");
@@ -217,7 +229,7 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 		if (!getCqls4Delete().isEmpty()) {
 			setCqlStmnts4Delete(new ArrayList<CqlStmnt>());
 			for (String cql : getCqls4Delete()) {
-				CqlStmnt stmt = getCQLStmnt(cql, getSession());
+				CqlStmnt stmt = getCQLStmnt(cql);
 				if (stmt.isEqual(getCqlStmnts4Delete())) {
 					throw new Exception(
 							"Injected CQL statements for DELETE are not distinct");
@@ -464,7 +476,8 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 		try {
 			List<ResultSet> resultSets = new ArrayList<ResultSet>();
 			for (Map map : myListMap) {
-				ResultSet resultSet = cqlStmnt.execute(map, inMsg);
+				ResultSet resultSet = cqlStmnt
+						.execute(map, inMsg, getSession());
 				if (resultSet != null) {
 					resultSets.add(resultSet);
 				}
@@ -717,18 +730,31 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 	}
 
 	/**
-	 * @return the session
+	 * @return the Cassandra session
 	 */
-	public Session getSession() {
-		return session;
-	}
+	public Session getSession() throws Exception {
 
-	/**
-	 * @param session
-	 *            the session to set
-	 */
-	public void setSession(Session session) {
-		this.session = session;
+		if (getCluster().isClosed()) {
+			throw new Exception(this.getBeanName()
+					+ ":getSession: cluster bean has been closed");
+		}
+
+		if (session != null && !session.isClosed()) {
+			return session;
+		} else if (session != null) {
+			throw new Exception(this.getBeanName()
+					+ ":getSession: Cassandra session has been closed");
+		}
+
+		try {
+			session = getCluster().connect(getKeyspace());
+		} catch (NoHostAvailableException exc) {
+			LOG.error(getBeanName()
+					+ ":unable to connect Cassandra during bean initialization, msg = "
+					+ exc.getMessage());
+			throw exc;
+		}
+		return session;
 	}
 
 	@Override

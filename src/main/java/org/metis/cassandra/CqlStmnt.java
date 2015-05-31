@@ -65,10 +65,6 @@ public class CqlStmnt {
 	// parameterized token.
 	private Map<String, CqlToken> keyTokens = new HashMap<String, CqlToken>();
 
-	private int dfltFetchSize;
-	private ConsistencyLevel dftlConsistencyLevel;
-	private ConsistencyLevel dftlSerialConsistencyLevel;
-
 	// Enumeration used for identifying the type of CQL statement
 	public enum CqlStmntType {
 		SELECT, UPDATE, DELETE, INSERT;
@@ -90,16 +86,12 @@ public class CqlStmnt {
 	 * @param intokens
 	 * @throws IllegalArgumentException
 	 */
-	public CqlStmnt(String orig, ArrayList<CqlToken> intokens, Session session)
+	// public CqlStmnt(String orig, ArrayList<CqlToken> intokens, Session
+	// session)
+	public CqlStmnt(String orig, ArrayList<CqlToken> intokens)
 			throws IllegalArgumentException, Exception {
 		setSession(session);
 		setOriginalStr(orig);
-		setDfltFetchSize(session.getCluster().getConfiguration()
-				.getQueryOptions().getFetchSize());
-		setDftlConsistencyLevel(session.getCluster().getConfiguration()
-				.getQueryOptions().getConsistencyLevel());
-		setDftlSerialConsistencyLevel(session.getCluster().getConfiguration()
-				.getQueryOptions().getSerialConsistencyLevel());
 		// perform all the initialization and validation tasks for this new
 		// CqlStmnt
 		init(intokens);
@@ -375,7 +367,7 @@ public class CqlStmnt {
 	 * @throws IllegalArgumentException
 	 * @throws Exception
 	 */
-	public static CqlStmnt getCQLStmnt(String cql, Session session)
+	public static CqlStmnt getCQLStmnt(String cql)
 			throws IllegalArgumentException, Exception {
 
 		if (cql == null || cql.isEmpty()) {
@@ -455,7 +447,7 @@ public class CqlStmnt {
 			}
 		}
 		// create and return a CqlStmnt from the given tokens
-		return new CqlStmnt(cql, tList, session);
+		return new CqlStmnt(cql, tList);
 	}
 
 	/**
@@ -464,7 +456,8 @@ public class CqlStmnt {
 	 * @param params
 	 * @throws CQLException
 	 */
-	public ResultSet execute(Map<String, Object> inParams, Message inMsg) {
+	public ResultSet execute(Map<String, Object> inParams, Message inMsg,
+			Session session) {
 
 		Map<String, Object> params = (inParams == null) ? new HashMap<String, Object>()
 				: inParams;
@@ -476,10 +469,29 @@ public class CqlStmnt {
 		LOG.debug("execute: executing with this number {} of params",
 				params.size());
 
+		if (session == null) {
+			LOG.error("execute: session is null");
+			return null;
+		} else if (session.isClosed()) {
+			LOG.error("execute: session is closed");
+			return null;
+		}
+
+		// if this CQL statement is a prepared statement, ensure that it has
+		// been prepared
+		if (isPrepared() && getPreparedStatement() == null) {
+			setPreparedStatement(session.prepare(getPreparedStr()));
+		}
+
+		// grab some default info from Cassy session
+		ConsistencyLevel cLevel = session.getCluster().getConfiguration()
+				.getQueryOptions().getConsistencyLevel();
+		ConsistencyLevel sLevel = session.getCluster().getConfiguration()
+				.getQueryOptions().getSerialConsistencyLevel();
+		int fetchSize = session.getCluster().getConfiguration()
+				.getQueryOptions().getFetchSize();
+
 		// look for session level params in the in message
-		ConsistencyLevel cLevel = getDftlConsistencyLevel();
-		ConsistencyLevel sLevel = getDftlSerialConsistencyLevel();
-		int fetchSize = getDfltFetchSize();
 		Object tmpObj = inMsg.getHeader(CASSANDRA_CONSISTENCY_LEVEL);
 		if (tmpObj != null) {
 			try {
@@ -510,6 +522,10 @@ public class CqlStmnt {
 						(String) tmpObj);
 			}
 		}
+
+		LOG.debug("execute: consistency level: {} ", cLevel.toString());
+		LOG.debug("execute: seriel consistency level: {} ", sLevel.toString());
+		LOG.debug("execute: fetchSize: {} ", fetchSize);
 
 		// first, do some light validation work
 		if (params.size() == 0 && isPrepared()) {
@@ -550,14 +566,6 @@ public class CqlStmnt {
 			stmnt.setFetchSize(fetchSize);
 			stmnt.setConsistencyLevel(cLevel);
 			stmnt.setSerialConsistencyLevel(sLevel);
-
-			if (LOG.isTraceEnabled()) {
-				LOG.trace("execute: fetch size = " + stmnt.getFetchSize());
-				LOG.trace("execute: consistency level = "
-						+ stmnt.getConsistencyLevel());
-				LOG.trace("execute: serial consistency level = "
-						+ stmnt.getSerialConsistencyLevel());
-			}
 
 			if (isPrepared()) {
 				LOG.debug("execute: executing this prepared statement {} ",
@@ -684,8 +692,7 @@ public class CqlStmnt {
 		// mark the statement as being prepared if it has parameterized
 		// tokens
 		if (keyTokensIndex > 0) {
-			setPreparedStr(tmpStr.trim());
-			setPreparedStatement(session.prepare(preparedStr));
+			setPreparedStr(tmpStr.trim());			
 		} else {
 			setPreparedStr(EMPTY_STR);
 		}
@@ -856,52 +863,6 @@ public class CqlStmnt {
 				}
 			}
 		}
-	}
-
-	/**
-	 * @return the dfltFetchSize
-	 */
-	public int getDfltFetchSize() {
-		return dfltFetchSize;
-	}
-
-	/**
-	 * @param dfltFetchSize
-	 *            the dfltFetchSize to set
-	 */
-	public void setDfltFetchSize(int dfltFetchSize) {
-		this.dfltFetchSize = dfltFetchSize;
-	}
-
-	/**
-	 * @return the dftlConsistencyLevel
-	 */
-	public ConsistencyLevel getDftlConsistencyLevel() {
-		return dftlConsistencyLevel;
-	}
-
-	/**
-	 * @param dftlConsistencyLevel
-	 *            the dftlConsistencyLevel to set
-	 */
-	public void setDftlConsistencyLevel(ConsistencyLevel dftlConsistencyLevel) {
-		this.dftlConsistencyLevel = dftlConsistencyLevel;
-	}
-
-	/**
-	 * @return the dftlSerialConsistencyLevel
-	 */
-	public ConsistencyLevel getDftlSerialConsistencyLevel() {
-		return dftlSerialConsistencyLevel;
-	}
-
-	/**
-	 * @param dftlSerialConsistencyLevel
-	 *            the dftlSerialConsistencyLevel to set
-	 */
-	public void setDftlSerialConsistencyLevel(
-			ConsistencyLevel dftlSerialConsistencyLevel) {
-		this.dftlSerialConsistencyLevel = dftlSerialConsistencyLevel;
 	}
 
 }

@@ -29,8 +29,7 @@ import static org.junit.Assert.*;
 
 /**
  * Runs a lot of tests against the creation and validation of the CQL
- * statements. This test is executed against a local Cassandra node that has
- * been given the 'videodb' kepspace.
+ * statements. 
  * 
  */
 

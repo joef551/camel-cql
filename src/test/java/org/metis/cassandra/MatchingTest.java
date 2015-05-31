@@ -45,9 +45,7 @@ public class MatchingTest {
 	private static Map<String, String> map = new HashMap<String, String>();
 
 	/**
-	 * To run these tests, Cassandra needs to be running and the videodb
-	 * keyspace must be installed. See ${project-home}/src/main/cql for videodb
-	 * CQL scripts
+	 * Runs a series of test to validate CQL matching	
 	 * 
 	 * @throws Exception
 	 */
