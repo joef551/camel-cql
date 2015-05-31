@@ -27,10 +27,10 @@ public class PoolingOption implements InitializingBean, BeanNameAware,
 	private static final Logger LOG = LoggerFactory
 			.getLogger(PoolingOption.class);
 	private String beanName;
-	private int coreConnections = -1;
-	private int maxConnections = -1;
-	private int maxSimultaneousRequests = -1;
-	private int minSimultaneousRequests = -1;
+	private int coreConnectionsPerHost = -1;
+	private int maxConnectionsPerHost = -1;
+	private int maxSimultaneousRequestsPerConnectionThreshold = -1;
+	private int maxSimultaneousRequestsPerHostThreshold = -1;
 	private String distance;
 	private HostDistance hostDistance = HostDistance.IGNORED;
 
@@ -97,44 +97,44 @@ public class PoolingOption implements InitializingBean, BeanNameAware,
 	}
 
 	/**
-	 * @return the coreConnections
+	 * @return the coreConnectionsPerHost
 	 */
-	public int getCoreConnections() {
-		return coreConnections;
+	public int getCoreConnectionsPerHost() {
+		return coreConnectionsPerHost;
 	}
 
 	/**
 	 * Sets the core number of connections per host.
 	 * 
-	 * @param coreConnections
-	 *            the coreConnections to set
+	 * @param coreConnectionsPerHost
+	 *            the coreConnectionsPerHost to set
 	 */
-	public void setCoreConnections(int coreConnections) {
-		this.coreConnections = coreConnections;
+	public void setCoreConnectionsPerHost(int coreConnections) {
+		this.coreConnectionsPerHost = coreConnections;
 	}
 
 	/**
-	 * @return the maxConnections
+	 * @return the maxConnectionsPerHost
 	 */
-	public int getMaxConnections() {
-		return maxConnections;
+	public int getMaxConnectionsPerHost() {
+		return maxConnectionsPerHost;
 	}
 
 	/**
 	 * Sets the maximum number of connections per host.
 	 * 
-	 * @param maxConnections
-	 *            the maxConnections to set
+	 * @param maxConnectionsPerHost
+	 *            the maxConnectionsPerHost to set
 	 */
-	public void setMaxConnections(int maxConnections) {
-		this.maxConnections = maxConnections;
+	public void setMaxConnectionsPerHost(int maxConnections) {
+		this.maxConnectionsPerHost = maxConnections;
 	}
 
 	/**
-	 * @return the maxSimultaneousRequests
+	 * @return the maxSimultaneousRequestsPerHostThreshold
 	 */
-	public int getMaxSimultaneousRequests() {
-		return maxSimultaneousRequests;
+	public int getMaxSimultaneousRequestsPerHostThreshold() {
+		return maxSimultaneousRequestsPerHostThreshold;
 	}
 
 	/**
@@ -142,26 +142,28 @@ public class PoolingOption implements InitializingBean, BeanNameAware,
 	 * Sets number of simultaneous requests on all connections to a host after
 	 * which more connections are created.
 	 * 
-	 * @param maxSimultaneousRequests
-	 *            the maxSimultaneousRequests to set
+	 * @param maxSimultaneousRequestsPerHostThreshold
+	 *            the maxSimultaneousRequestsPerHostThreshold to set
 	 */
-	public void setMaxSimultaneousRequests(int maxSimultaneousRequests) {
-		this.maxSimultaneousRequests = maxSimultaneousRequests;
+	public void setMaxSimultaneousRequestsPerHostThreshold(
+			int maxSimultaneousRequestsPerHostThreshold) {
+		this.maxSimultaneousRequestsPerHostThreshold = maxSimultaneousRequestsPerHostThreshold;
 	}
 
 	/**
-	 * @return the minSimultaneousRequests
+	 * @return the maxSimultaneousRequestsPerConnectionThreshold
 	 */
-	public int getMinSimultaneousRequests() {
-		return minSimultaneousRequests;
+	public int getMaxSimultaneousRequestsPerConnectionThreshold() {
+		return maxSimultaneousRequestsPerConnectionThreshold;
 	}
 
 	/**
-	 * @param minSimultaneousRequests
-	 *            the minSimultaneousRequests to set
+	 * @param maxSimultaneousRequestsPerConnectionThreshold
+	 *            the maxSimultaneousRequestsPerConnectionThreshold to set
 	 */
-	public void setMinSimultaneousRequests(int minSimultaneousRequests) {
-		this.minSimultaneousRequests = minSimultaneousRequests;
+	public void setMaxSimultaneousRequestsPerConnectionThreshold(
+			int maxSimultaneousRequestsPerConnectionThreshold) {
+		this.maxSimultaneousRequestsPerConnectionThreshold = maxSimultaneousRequestsPerConnectionThreshold;
 	}
 
 }

@@ -139,7 +139,10 @@ You can only have one client mapper per Spring XML application context.
 
 [Cluster Bean](id:clusterbean) (org.metis.cassandra.ClusterBean)
 ----
-A cluster bean, in combination with its supporting beans, is used for configuring an instance of a [Cassandra Java driver](http://docs.datastax.com/en/developer/java-driver/2.1/java-driver/whatsNew2.html), which is used for accessing a Cassandra cluster. Each client bean in the Spring context must be wired to a cluster bean. You can define any number of cluster beans; each used for accessing a different Cassandra cluster. 
+A cluster bean, in combination with its referenced beans, is used for configuring an instance of a [Cassandra Java driver](http://docs.datastax.com/en/developer/java-driver/2.1/java-driver/whatsNew2.html), which is used for accessing a Cassandra cluster. Each client bean in the Spring context must be wired to a cluster bean. You can define any number of cluster beans; each used for accessing a different Cassandra cluster. 
+
+The following is an example definition of a cluster bean. Please note that not all of the cluster bean's properties are depicted in the example. Also, please refer to the driver's [API docs](http://docs.datastax.com/en/drivers/java/2.1/) for more detailed information on the driver's policies and options.  
+
 
 ```xml
 <bean id="cluster1" class="org.metis.cassandra.ClusterBean">
@@ -148,48 +151,83 @@ A cluster bean, in combination with its supporting beans, is used for configurin
 	<property name="clusterNodes" value="127.0.0.1" />
 	
 	<!-- Some of the driver's policies. If one is not specified it will be 
-	     defaulted. Please refer to the 2.1 driver's API documentaiton for a 
-	     complete list of policies -->
+	     defaulted. Please refer to the 2.1 driver's API documentation for a 
+	     complete list of policies and their defaults -->
 	<property name="loadBalancingPolicy" ref="roundRobin" />
 	<property name="reconnectionPolicy" ref="reconnectionPolicy" />
 	<property name="retryPolicy" ref="retryPolicy" />
 	
+	<property name="metricsOption" ref=" metricsOption" />
+	
+	<!-- If a protocol or socket option is not specified, the corresponding 
+	     default is be used. The ProtocolOptions is typically used for 
+	     setting the target port number of the Cassandra cluster -->
 	<property name="protocolOptions" ref="protocolOptions" />
 	<property name="socketOptions" ref="socketOptions" />
+	
+	<!-- You can specify PoolingOptions, but you can only specify those 
+	     properties (e.g., poolTimeoutMillis, heartbeatIntervalSeconds, 
+	     idleTimeoutSeconds) that are not associated with a HostDistance
+	     (i.e., LOCAL, REMOTE, and IGNORE). For those properties that are 
+	     associated with a HostDistance, use the listOfPoolingOptions 
+	     property. -->
+	<property name="poolingOptions" ref="poolingOptions" />
+	<!-- Use the listOfPoolingOptions to specify those pooling options that 
+	     are associated with a HostDistance. You should only be concerned 
+	     with LOCAL and REMOTE HostDistances. -->
 	<property name="listOfPoolingOptions">
 	   <list>
 		<ref bean="localOption"/>
-		<ref bean="remoteOption>"/>
+		<ref bean="remoteOption"/>
 	   </list>
 	</property>		
-	<property name="fetchSize" value="5000"/> 
-	<property name="consistencyLevel" value="ONE"/>
-	<property name="serialConsistencyLevel" value="SERIAL"/> 
-
+	
+	<property name="queryOptions" ref="queryOptions"/> 
 </bean>
+
+<!-- Example referenced beans -->
 
 <bean id="roundRobin" class="com.datastax.driver.core.policies.RoundRobinPolicy" />
 <bean id="reconnectionPolicy" class="com.datastax.driver.core.policies.ExponentialReconnectionPolicy" />
 <bean id="retryPolicy" class="com.datastax.driver.core.policies.DowngradingConsistencyRetryPolicy" />
 
+<bean id="metricsOption" class="com.datastax.driver.core.MetricsOption" >
+  <constructor-arg name="jmxEnabled" value="true"/> 
+</bean>
+
+
 <bean id="protocolOptions" class="com.datastax.driver.core.ProtocolOptions">
  	<constructor-arg name="port" value="9042"/> 
 </bean>
+
+<bean id="poolingOptions" class="com.datastax.driver.core.PoolingOptions"/>
 <bean id="localOption" class="org.metis.cassandra.PoolingOption">
 		<property name="distance" value="local" />
-		<property name="coreConnections" value="5" />
-		<property name="maxConnections" value="10" />
-		<property name="maxSimultaneousRequests" value="5" />
-		<property name="minSimultaneousRequests" value="3" />
+		<property name="coreConnectionsPerHost" value="5" />
+		<property name="maxConnectionsPerHost" value="10" />
+		<property name="maxSimultaneousRequestsPerConnectionThreshold" value="2" />
+		<property name="maxSimultaneousRequestsPerHostThreshold" value="5" />
 </bean>
 <bean id="remoteOption" class="org.metis.cassandra.PoolingOption">
 		<property name="distance" value="remote" />
-		<property name="coreConnections" value="2" />
-		<property name="maxConnections" value="5" />
-		<property name="maxSimultaneousRequests" value="5" />
-		<property name="minSimultaneousRequests" value="3" />
+		<property name="coreConnectionsPerHost" value="5" />
+		<property name="maxConnectionsPerHost" value="10" />
+		<property name="maxSimultaneousRequestsPerConnectionThreshold" value="2" />
+		<property name="maxSimultaneousRequestsPerHostThreshold" value="5" />
 </bean>
+
 <bean id="socketOptions" class="com.datastax.driver.core.SocketOptions"/>
+
+<!-- An example of how to inject an Enum of ONE for the consistency level -->
+<bean id="queryOptions" class="com.datastax.driver.core.QueryOptions">
+  <property name="consistencyLevel">
+    <util:constant static-field="com.datastax.driver.core.ConsistencyLevel.ONE"/>
+  </property>
+</bean>
+
+</bean>
+
+
 ```
 
 <u>clusterName</u>
@@ -202,7 +240,7 @@ The **clusterNodes** property is used for specifying a comma-separated list of i
 
 <u>Policies</u>
 
-The different policies supported by the driver. The example cluster1 bean above depicts how these policies can be injected into the cluser bean.
+The different policies supported by the driver. The example "cluster1" bean above depicts how these policies can be injected into the cluser bean.
 
 - LoadBalancingPolicy
 - ReconnectionPolicy
@@ -216,25 +254,23 @@ Please refer to the 2.1 Java driver's API documentantion for a complete list of 
 
 The **protocolOptions** property is used for specifying the [ProtocolOptions](http://docs.datastax.com/en/drivers/java/2.1/com/datastax/driver/core/ProtocolOptions.html) to use for the discovered nodes. If you don't specify one, a default ProtocolOption is used. ProtocolOption is typically used for overriding the default port number of  9042. 
 
+<u>poolingOptions</u>
+
+The [options](http://docs.datastax.com/en/drivers/java/2.1/com/datastax/driver/core/PoolingOptions.html) associated with connection pooling. 
+
 <u>listOfPoolingOptions</u>
 
-The **listOfPoolingOptions** property specifies a list of [PoolingOptions](http://www.datastax.com/drivers/java/2.1/com/datastax/driver/core/PoolingOptions.html) for the connections to the cluster nodes. There should only be two PoolingOption beans in the list; one for REMOTE and the other for LOCAL nodes. The driver uses connections in an asynchronous manner; meaning that multiple requests can be simultaneously submitted on, or multiplexed through, the same connection. Thus the driver only needs to maintain a relatively small number of connections to each Cassandra node. The pooling option is used to specfiy options that allow the driver to control how many connections are kept to the Cassandra nodes. For each node, the driver keeps a core pool of connections open at all times (coreConnections). If the use of those core connections reaches a configurable threshold (maxSimultaneousRequests), more connections are created up to the configurable maximum number of connections (maxConnections)). When the pool exceeds the maximum number of connections, connections in excess are reclaimed if the use of opened connections drops below the configured threshold (minSimultaneousRequests). You want to have a PoolingOption bean for LOCAL and REMOTE (HostDistance) nodes. For IGNORED nodes, the default for all those settings is 0 and cannot be changed. 
+The **listOfPoolingOptions** property specifies a list of org.org.metis.cassandra.PoolingOption beans that are njected into the [PoolingOptions](http://www.datastax.com/drivers/java/2.1/com/datastax/driver/core/PoolingOptions.html). You want to have a PoolingOption bean for LOCAL and REMOTE (HostDistance) nodes. For IGNORED nodes, the default for all those settings is 0 and cannot be changed. The cluster bean will inject this list of PoolingOption beans into the PoolingOptions. 
 
 <u>socketOptions</u>
 
 The **socketOptions** property is used for specifying low-level [SocketOptions](http://www.datastax.com/drivers/java/2.1/com/datastax/driver/core/SocketOptions.html) (e.g., keepalive, solinger, etc.) for the connections to the cluster nodes. 
 
-<u>fetchSize</u>
+<u>queryOptions</u>
 
-Use the **fetchSize** property to set the default (5000) fetch size to use for SELECT queries. During runtime, this default value can be overridden by assigning the Camel in-message the "**metis.cql.fetch.size**" header. 
+The **queryOptions** property is used for specifying options for the [QueryOptions](http://www.datastax.com/drivers/java/2.1/com/datastax/driver/core/QueryOptions.html) for the queries.  
 
-<u>consistencyLevel</u>
 
-Use the **consistencyLevel** property to set the default (ONE) consistency level to use for queries. To learn more about consistency levels click [here](http://www.datastax.com/documentation/cassandra/2.1/cassandra/dml/dml_config_consistency_c.html). During runtime, this default value can be overridden by assigning the Camel in-message the "**metis.cql.consistency.level**" header. 
-
-<u>serialConsistencyLevel</u>
-
-Use the **serialConsistencyLevel** property to set the default (SERIAL) serial consistency level to use for queries. During runtime, this default value can be overridden by assigning the Camel in-message the "**metis.cql.serial.consistency.level**" header. 
 
 
 So What or Who Is Metis?

@@ -19,6 +19,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
 import org.metis.utils.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,6 +36,7 @@ import com.datastax.driver.core.ColumnDefinitions.Definition;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
+import com.datastax.driver.core.exceptions.NoHostAvailableException;
 
 import static org.metis.utils.Constants.*;
 import static org.metis.utils.Utils.dumpStackTrace;
@@ -114,10 +116,18 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 		// get the session to this Client's keyspace. The session is
 		// thread-safe! the connect will throw a couple of Cassandra-specific
 		// exceptions
-		setSession(getCluster().connect(getKeyspace()));
-
+		try {
+			setSession(getCluster().connect(getKeyspace()));
+		} catch (NoHostAvailableException exc) {
+			LOG.error(getBeanName()
+					+ ":unable to connect Cassandra during bean initialization, msg = "
+					+ exc.getMessage());
+			throw exc;
+		}
+		
 		LOG.info(getBeanName() + ": clusterBean name = "
 				+ getClusterBean().getBeanName());
+
 		LOG.info(getBeanName() + ": cluster name = "
 				+ getSession().getCluster().getMetadata().getClusterName());
 		LOG.info(getBeanName()
@@ -315,7 +325,6 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 		List<Map<Object, Object>> listMap = null;
 		Object payLoad = inMsg.getBody();
 		if (payLoad != null) {
-
 			// if payload is a stream or string, then it must be in the form of
 			// a JSON object, which then needs to be transformed into a Map or
 			// List of Maps
@@ -361,13 +370,18 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 			}
 			// ensure that all the Maps in the given list have the same set of
 			// keys
-			Set set1 = listMap.get(0).keySet();
-			for (int i = 1; i < listMap.size(); i++) {
-				if (!listMap.get(i).keySet().equals(set1)) {
-					throw new Exception(getBeanName()
-							+ ":camelProcess:ERROR, all Maps in the "
-							+ "provided List of Maps do not have the "
-							+ "same key set!");
+			if (listMap.size() > 1) {
+				for (int i = 0; i < listMap.size(); i++) {
+					Set set1 = listMap.get(i).keySet();
+					for (int j = i + 1; j < listMap.size(); j++) {
+						if (!listMap.get(j).keySet().equals(set1)) {
+							throw new Exception(getBeanName()
+									+ ":camelProcess:ERROR, all Maps in the "
+									+ "provided List of Maps do not have the "
+									+ "same key set!");
+						}
+
+					}
 				}
 			}
 		} else {
@@ -395,7 +409,7 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 		// see if request method is in the message
 		String inMethod = (String) inMsg.getHeader(CASSANDRA_METHOD);
 		if (inMethod == null || inMethod.isEmpty()) {
-			LOG.trace(getBeanName()
+			LOG.debug(getBeanName()
 					+ ":execute - method was not provided, defaulting to {}",
 					getDfltMethod().toString());
 			inMethod = getDfltMethod().toString();
@@ -404,7 +418,7 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 		Method method = null;
 		try {
 			method = Method.valueOf(inMethod.toUpperCase());
-			LOG.trace(getBeanName() + ":execute - processing this method: "
+			LOG.debug(getBeanName() + ":execute - processing this method: "
 					+ method.toString());
 		} catch (IllegalArgumentException e) {
 			throw new Exception(getBeanName()
@@ -420,20 +434,18 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 		}
 
 		// if no list of maps was passed in, then dummy one up
-		List<Map<Object, Object>> myListMap = null;
+		List<Map<Object, Object>> myListMap = new ArrayList<Map<Object, Object>>();
 		if (listMap == null) {
-			LOG.trace(getBeanName() + ":execute - listMap was not provided");
-			myListMap = new ArrayList<Map<Object, Object>>();
+			LOG.debug(getBeanName() + ":execute - listMap was not provided");
 			myListMap.add(new HashMap<Object, Object>());
 		} else {
 			// create a copy of the given list.
-			myListMap = new ArrayList<Map<Object, Object>>();
 			for (Map<Object, Object> map : listMap) {
 				myListMap.add(new HashMap<Object, Object>(map));
 			}
 		}
 
-		LOG.trace(getBeanName() + ":execute - executing this many maps {}",
+		LOG.debug(getBeanName() + ":execute - executing this many maps {}",
 				myListMap.size());
 
 		// Get the CQL statement that matches the given map(s)
@@ -487,7 +499,7 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 				}
 			}
 			// return the List of Maps up into the Exchange's out message
-			LOG.trace(getBeanName()
+			LOG.debug(getBeanName()
 					+ ":camelProcess: sending back this many Maps {}",
 					listOutMaps.size());
 
@@ -514,7 +526,8 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 	private List<CqlStmnt> getCqlStmnts(Method method)
 			throws IllegalArgumentException {
 		if (method == null) {
-			throw new IllegalArgumentException("provided method is null");
+			LOG.warn(getBeanName() + ":getCqlStmnts: provided method is null");
+			return null;
 		}
 		switch (method) {
 		case SELECT:

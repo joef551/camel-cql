@@ -323,27 +323,27 @@ public class CqlStmnt {
 	public static CqlStmnt getMatch(List<CqlStmnt> stmnts, Set<String> keys) {
 
 		if (stmnts == null || stmnts.size() == 0) {
-			LOG.trace("getMatch: null or empty list of statements "
+			LOG.warn("getMatch: null or empty list of statements "
 					+ "was provided");
 			return null;
 		} else {
-			LOG.trace("getMatch: {} statements are in provided list ",
+			LOG.debug("getMatch: {} statements are in provided list ",
 					stmnts.size());
 
 		}
 
 		// if there are no keys, then follow step 1
 		if (keys == null || keys.isEmpty()) {
-			LOG.trace("getMatch: input params were not provided");
-			// first search for the first non-prepared statement
+			LOG.debug("getMatch: input params were not provided");
+			// search for the first non-prepared statement
 			for (CqlStmnt stmnt : stmnts) {
 				if (!stmnt.isPrepared()) {
-					LOG.trace("getMatch: returning this non-prepared statement: "
+					LOG.debug("getMatch: returning this non-prepared statement: "
 							+ stmnt.getOriginalStr());
 					return stmnt;
 				}
 			}
-			LOG.trace("getMatch: returning null");
+			LOG.warn("getMatch: returning null");
 			return null;
 		}
 
@@ -354,7 +354,7 @@ public class CqlStmnt {
 			LOG.trace("getMatch: checking against this statement {}",
 					stmnt.getOriginalStr());
 			if (stmnt.isMatch(keys)) {
-				LOG.trace("getMatch: returning this statement: "
+				LOG.debug("getMatch: returning this statement: "
 						+ stmnt.getOriginalStr());
 				return stmnt;
 			}

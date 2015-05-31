@@ -28,7 +28,6 @@ import com.datastax.driver.core.MetricsOptions;
 import com.datastax.driver.core.policies.Policies;
 import com.datastax.driver.core.PoolingOptions;
 import com.datastax.driver.core.HostDistance;
-import com.datastax.driver.core.ConsistencyLevel;
 import com.datastax.driver.core.ProtocolOptions;
 import com.datastax.driver.core.SocketOptions;
 import com.datastax.driver.core.QueryOptions;
@@ -36,8 +35,9 @@ import com.datastax.driver.core.policies.LoadBalancingPolicy;
 import com.datastax.driver.core.policies.AddressTranslater;
 import com.datastax.driver.core.policies.ReconnectionPolicy;
 import com.datastax.driver.core.policies.RetryPolicy;
-import com.datastax.driver.core.ProtocolOptions.Compression;
-import com.datastax.driver.core.ProtocolVersion;
+import com.datastax.driver.core.NettyOptions;
+import static com.datastax.driver.core.NettyOptions.DEFAULT_INSTANCE;
+import com.datastax.driver.core.policies.SpeculativeExecutionPolicy;
 
 /**
  * The ClusterBean is used for configuring an instance of the Cassandra Java
@@ -67,18 +67,9 @@ public class ClusterBean implements InitializingBean, BeanNameAware,
 	private ProtocolOptions protocolOptions;
 	private SocketOptions socketOptions;
 	private QueryOptions queryOptions;
-	private ConsistencyLevel consistencyLevel = QueryOptions.DEFAULT_CONSISTENCY_LEVEL;
-	private ConsistencyLevel serialConsistencyLevel = QueryOptions.DEFAULT_SERIAL_CONSISTENCY_LEVEL;
-	private Compression compressionLevel = Compression.NONE;
-	private int fetchSize = QueryOptions.DEFAULT_FETCH_SIZE;
-	private int port = ProtocolOptions.DEFAULT_PORT;
-	private int protocolVersion = -1;
-	private boolean jmxReportingEnabled;
-	private String consistency;
-	private String serialConsistency;
-	private String compression = Compression.NONE.toString();
 	private String clusterNodes;
-	
+	private NettyOptions nettyOptions = DEFAULT_INSTANCE;
+	private SpeculativeExecutionPolicy speculativeExecutionPolicy;
 
 	public ClusterBean() {
 	}
@@ -94,7 +85,9 @@ public class ClusterBean implements InitializingBean, BeanNameAware,
 
 		// 1. Set the MetricsOptions
 		// See http://www.datastax.com/drivers/java/2.1/index.html
-		setMetricsOptions(new MetricsOptions(isJmxReportingEnabled()));
+		if (this.getMetricsOptions() == null) {
+			setMetricsOptions(new MetricsOptions());
+		}
 
 		// 2. Set any injected Policies. Those not injected will be defaulted.
 		setPolicies(new Policies(
@@ -105,49 +98,47 @@ public class ClusterBean implements InitializingBean, BeanNameAware,
 				(getRetryPolicy() != null ? getRetryPolicy() : Policies
 						.defaultRetryPolicy()),
 				(getAddressTranslater() != null ? getAddressTranslater()
-						: Policies.defaultAddressTranslater())));
+						: Policies.defaultAddressTranslater()),
+				(getSpeculativeExecutionPolicy() != null ? getSpeculativeExecutionPolicy()
+						: Policies.defaultSpeculativeExecutionPolicy())));
 
 		// 3. Set the protocol options. Can be injected via Spring, and if not a
 		// default is used.
 		if (getProtocolOptions() == null) {
-			setProtocolOptions(new ProtocolOptions(getPort()));
+			setProtocolOptions(new ProtocolOptions());
 		}
-		setProtocolOptions(getProtocolOptions().setCompression(
-				getCompressionLevel()));
-		
-		//getProtocolOptions().
 
 		// 4. Set the pooling options
-		setPoolingOptions(new PoolingOptions());
+		if (getPoolingOptions() == null) {
+			setPoolingOptions(new PoolingOptions());
+		}
 		if (getListOfPoolingOptions() != null) {
 			for (PoolingOption po : getListOfPoolingOptions()) {
 				if (po.getHostDistance() != HostDistance.IGNORED) {
-					if (po.getMinSimultaneousRequests() >= 0) {
-						setPoolingOptions(getPoolingOptions()
-								.setMinSimultaneousRequestsPerConnectionThreshold(
-										po.getHostDistance(),
-										po.getMinSimultaneousRequests()));
-					}
-					if (po.getCoreConnections() >= 0) {
+					if (po.getCoreConnectionsPerHost() >= 0) {
 						setPoolingOptions(getPoolingOptions()
 								.setCoreConnectionsPerHost(
 										po.getHostDistance(),
-										po.getCoreConnections()));
+										po.getCoreConnectionsPerHost()));
 					}
-					if (po.getMaxConnections() >= 0) {
+					if (po.getMaxConnectionsPerHost() >= 0) {
 						setPoolingOptions(getPoolingOptions()
 								.setMaxConnectionsPerHost(po.getHostDistance(),
-										po.getMaxConnections()));
+										po.getMaxConnectionsPerHost()));
 					}
-					if (po.getMaxSimultaneousRequests() >= 0) {
+					if (po.getMaxSimultaneousRequestsPerHostThreshold() >= 0) {
+						setPoolingOptions(getPoolingOptions()
+								.setMaxSimultaneousRequestsPerHostThreshold(
+										po.getHostDistance(),
+										po.getMaxSimultaneousRequestsPerHostThreshold()));
+					}
+					if (po.getMaxSimultaneousRequestsPerConnectionThreshold() >= 0) {
 						setPoolingOptions(getPoolingOptions()
 								.setMaxSimultaneousRequestsPerConnectionThreshold(
 										po.getHostDistance(),
-										po.getMaxSimultaneousRequests()));
+										po.getMaxSimultaneousRequestsPerConnectionThreshold()));
 					}
-
 				}
-
 			}
 		}
 
@@ -156,11 +147,10 @@ public class ClusterBean implements InitializingBean, BeanNameAware,
 			setSocketOptions(new SocketOptions());
 		}
 
-		// 6. Set the QueryOptions
-		setQueryOptions(new QueryOptions()
-				.setConsistencyLevel(getConsistencyLevel())
-				.setSerialConsistencyLevel(getSerialConsistencyLevel())
-				.setFetchSize(getFetchSize()));
+		// 6. Set the query options
+		if (getQueryOptions() == null) {
+			setQueryOptions(new QueryOptions());
+		}
 
 		// 7. Set the contact points, which are a comma-separated list of host
 		// addrs with optional port. Note that all contact points provided by
@@ -175,14 +165,15 @@ public class ClusterBean implements InitializingBean, BeanNameAware,
 		}
 		List<InetSocketAddress> addrs = new ArrayList<InetSocketAddress>();
 		for (String node : nodes) {
-			addrs.add(new InetSocketAddress(node.trim(), getPort()));
+			addrs.add(new InetSocketAddress(node.trim(), this
+					.getProtocolOptions().getPort()));
 		}
 		setContactPoints(addrs);
 
 		// 8. Set the configuration
 		setConfiguration(new Configuration(getPolicies(), getProtocolOptions(),
 				getPoolingOptions(), getSocketOptions(), getMetricsOptions(),
-				getQueryOptions()));
+				getQueryOptions(), getNettyOptions()));
 
 		// 9. Now create a Cluster from all that has been gathered
 		setCluster(Cluster.buildFrom(this));
@@ -243,14 +234,6 @@ public class ClusterBean implements InitializingBean, BeanNameAware,
 		this.metricsOptions = metricsOptions;
 	}
 
-	public boolean isJmxReportingEnabled() {
-		return jmxReportingEnabled;
-	}
-
-	public void setJmxReportingEnabled(boolean jmxEnabled) {
-		jmxReportingEnabled = jmxEnabled;
-	}
-
 	public Policies getPolicies() {
 		return policies;
 	}
@@ -265,167 +248,6 @@ public class ClusterBean implements InitializingBean, BeanNameAware,
 
 	public void setPoolingOptions(PoolingOptions poolingOptions) {
 		this.poolingOptions = poolingOptions;
-	}
-
-	/**
-	 * @return the consistencyLevel
-	 */
-	public ConsistencyLevel getConsistencyLevel() {
-		return consistencyLevel;
-	}
-
-	/**
-	 * @param consistencyLevel
-	 *            the consistencyLevel to set
-	 */
-	public void setConsistencyLevel(ConsistencyLevel consistencyLevel) {
-		this.consistencyLevel = consistencyLevel;
-	}
-
-	/**
-	 * @return the consistency
-	 */
-	public String getConsistency() {
-		return consistency;
-	}
-
-	/**
-	 * @param consistency
-	 *            the consistency to set
-	 */
-	public void setConsistency(String consistency)
-			throws IllegalArgumentException {
-
-		if (consistency == null || consistency.isEmpty()) {
-			throw new IllegalArgumentException("illegal consistency level");
-		}
-		setConsistencyLevel(ConsistencyLevel.valueOf(consistency));
-		this.consistency = consistency;
-	}
-
-	/**
-	 * @return the serialConsistencyLevel
-	 */
-	public ConsistencyLevel getSerialConsistencyLevel() {
-		return serialConsistencyLevel;
-	}
-
-	/**
-	 * @param serialConsistencyLevel
-	 *            the serialConsistencyLevel to set
-	 */
-	public void setSerialConsistencyLevel(
-			ConsistencyLevel serialConsistencyLevel) {
-		this.serialConsistencyLevel = serialConsistencyLevel;
-	}
-
-	/**
-	 * @return the serialConsistency
-	 */
-	public String getSerialConsistency() {
-		return serialConsistency;
-	}
-
-	/**
-	 * @param serialConsistency
-	 *            the serialConsistency to set
-	 */
-	public void setSerialConsistency(String consistency)
-			throws IllegalArgumentException {
-
-		if (consistency == null || consistency.isEmpty()) {
-			throw new IllegalArgumentException(
-					"illegal serial consistency level");
-		}
-		setSerialConsistencyLevel(ConsistencyLevel.valueOf(consistency));
-		this.serialConsistency = consistency;
-	}
-
-	/**
-	 * @return the fetchSize
-	 */
-	public int getFetchSize() {
-		return fetchSize;
-	}
-
-	/**
-	 * @param fetchSize
-	 *            the fetchSize to set
-	 */
-	public void setFetchSize(int fetchSize) {
-		this.fetchSize = fetchSize;
-	}
-
-	/**
-	 * This is in the protocol options
-	 * 
-	 * @return the default port
-	 */
-	public int getPort() {
-		return port;
-	}
-
-	/**
-	 * @param port
-	 *            the default port to set
-	 */
-	public void setPort(int port) {
-		this.port = port;
-	}
-
-	/**
-	 * @return the protocolVersion
-	 */
-	public int getProtocolVersion() {
-		return protocolVersion;
-	}
-
-	/**
-	 * This can be a negative number, in which case the version used will be the
-	 * biggest version supported by the first node the driver connects to.
-	 * Otherwise, it must be either 1, 2 or 3 to force using a particular protocol
-	 * version
-	 * 
-	 * @param protocolVersion
-	 *            the protocolVersion to set
-	 */
-	public void setProtocolVersion(int protocolVersion) {
-		this.protocolVersion = protocolVersion;
-	}
-
-	/**
-	 * @return the compression
-	 */
-	public String getCompression() {
-		return compression;
-	}
-
-	/**
-	 * @param compression
-	 *            the compression to set
-	 */
-	public void setCompression(String compression)
-			throws IllegalArgumentException {
-		if (compression == null || compression.isEmpty()) {
-			throw new IllegalArgumentException("invalid compression string");
-		}
-		setCompressionLevel(Compression.valueOf(compression.toUpperCase()));
-		this.compression = compression;
-	}
-
-	/**
-	 * @return the compressionLevel
-	 */
-	public Compression getCompressionLevel() {
-		return compressionLevel;
-	}
-
-	/**
-	 * @param compressionLevel
-	 *            the compressionLevel to set
-	 */
-	public void setCompressionLevel(Compression compressionLevel) {
-		this.compressionLevel = compressionLevel;
 	}
 
 	/**
@@ -576,6 +398,37 @@ public class ClusterBean implements InitializingBean, BeanNameAware,
 	 */
 	public void setListOfPoolingOptions(List<PoolingOption> listOfPoolingOptions) {
 		this.listOfPoolingOptions = listOfPoolingOptions;
+	}
+
+	/**
+	 * @return the nettyOptions
+	 */
+	public NettyOptions getNettyOptions() {
+		return nettyOptions;
+	}
+
+	/**
+	 * @param nettyOptions
+	 *            the nettyOptions to set
+	 */
+	public void setNettyOptions(NettyOptions nettyOptions) {
+		this.nettyOptions = nettyOptions;
+	}
+
+	/**
+	 * @return the speculativeExecutionPolicy
+	 */
+	public SpeculativeExecutionPolicy getSpeculativeExecutionPolicy() {
+		return speculativeExecutionPolicy;
+	}
+
+	/**
+	 * @param speculativeExecutionPolicy
+	 *            the speculativeExecutionPolicy to set
+	 */
+	public void setSpeculativeExecutionPolicy(
+			SpeculativeExecutionPolicy speculativeExecutionPolicy) {
+		this.speculativeExecutionPolicy = speculativeExecutionPolicy;
 	}
 
 }
