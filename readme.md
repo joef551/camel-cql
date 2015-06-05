@@ -31,11 +31,13 @@ A Cassandra CQL component (org.metis.cassandra.CqlComponent) is configured throu
 
 Via either of the two configuration approaches described above, you define and configure the bean objects described in the following subsections. As you read through the following configuration-related subsections, please keep in mind the use of [Camel property placeholders](http://camel.apache.org/using-propertyplaceholder.html), which provide for dynamic configurations.  
 
+For example configurations, see the "camel1.xml" and "cassandra.xml" files in the project's .../test/resources directory. 
+
 
 Client Bean (org.metis.cassandra.Client)
 ----
 
-The client bean is a thread-safe component that is used by the CqlComponent for accessing a Cassandra cluster, a keyspace within the cluster, and any tables within the keyspace. You can define any number of client beans. The CQL component's URI is used to identify which client bean to use. For example, a URI of `cql:user` specifies the client bean with an id of "user", which may logically be used for accessing the "user"" table in a Cassandra keyspace. Also see [Client Mapper](#clientmapper) for using ant-style pattern matching to identify a client bean. 
+The client bean is a thread-safe component that is used by the CqlComponent for accessing a Cassandra cluster, a keyspace within the cluster, and any tables within the keyspace. You can define any number of client beans. The CQL component's URI is used to identify which client bean to use. For example, a URI of `cql:user` specifies the client bean with an id of "user", which may logically be used for accessing the "user" table in a Cassandra keyspace. Also see [Client Mapper](#clientmapper) for using ant-style pattern matching to identify a client bean. 
 
 Each client bean that you define must be assigned one or more CQL statements, which can be any combination of SELECT, UPDATE, DELETE, and INSERT query method. The incoming request message (i.e., Camel in-message) specifies a method, as well as input parameters (key:value pairs). The combination of specified method and input parameters is used to identify which of the client's CQL statements are to be used for the corresponding request message. The method is specified in the Camel Exchange's input message via a header called, "**metis.cassandra.method**". If that header is not present, the client will fall back on a default method. The default method can be either injected into the client or you can have the client choose a default method based on its injected CQL statements. You can inject the default method via the 'defaultMethod' property. For example:
 
@@ -47,9 +49,10 @@ Each client bean that you define must be assigned one or more CQL statements, wh
 </bean> 	
 ```
 
-If a default method is not injected, the client will select one based on its injected CQL statements. If the injected CQL statements include any combination of methods (e.g., SELECT and DELETE), the client will fall back on SELECT. If the injected CQLs comprise just one method, then that method will be the default method. For example, if all the injected CQL statements are of type DELETE, then DELETE will be the default method for the client. However, if there are CQL statements for both SELECT and DELETE, then SELECT will be the chosen default method.  
+
+If a default method is not injected, the client will select one based on its injected CQL statements. If the injected CQL statements include any combination of methods (e.g., SELECT and DELETE), the client will fall back on SELECT. If the injected CQL statements comprise just one type of method, then that method will be the default method. For example, if all the injected CQL statements are of type DELETE, then DELETE will be the default method for the client. However, if there are CQL statements for both SELECT and DELETE, then SELECT will be the chosen default method.  
  
-If the incoming request message does not include input parameters, the CQL statement not having any parameterized fields (see below) will be chosen.  The input parameters are passed in  as either a Map, List of Maps, or JSON object. JSON objects are in the form of a String or Stream object. If it is a JSON object (i.e., in the form of a String or InputStream), the object will be transformed to either a Map or List of Maps. Please note that all incoming Camel exchanges must have the **InOut** message exchange pattern (MEP). The response message (Camel out message) is sent back as a List of Maps. 
+If the incoming request message does not include input parameters, the client will choose the CQL statement not having any parameterized fields (see below); therefore, you should never have more than one non-parameterized CQL statement per method type.  The input parameters are passed in as either a Map, List of Maps, or JSON object. JSON objects are in the form of a String or InputStream object, which are transformed to either a Map or List of Maps. Please note that all incoming Camel exchanges must have the **InOut** message exchange pattern (MEP). The response message (Camel out message) is sent back as a List of Maps. 
 
 So through a single Camel route, you can invoke any of the CQL statements that are assigned to a particular client. This, therefore, precludes the route from getting nailed to any one particular CQL statement for it is the method and input parameters that decide which CQL statement will be used. Here's a snippet of XML that defines a client bean called "user". 
 
