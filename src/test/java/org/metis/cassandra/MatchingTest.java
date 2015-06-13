@@ -36,8 +36,11 @@ import static org.junit.Assert.*;
 
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
 public class MatchingTest {
-	private static Client client;
-	private static ArrayList<String> list = new ArrayList<String>();
+
+	private static CqlStmnt cqlStmnt;
+	private Client client;
+	private static ArrayList<CqlStmnt> list = new ArrayList<CqlStmnt>();
+
 	// private static Cluster cluster;
 	private static ClusterBean clusterBean;
 	static private ApplicationContext context = null;
@@ -45,7 +48,7 @@ public class MatchingTest {
 	private static Map<String, String> map = new HashMap<String, String>();
 
 	/**
-	 * Runs a series of test to validate CQL matching	
+	 * Runs a series of test to validate CQL matching
 	 * 
 	 * @throws Exception
 	 */
@@ -65,16 +68,22 @@ public class MatchingTest {
 
 	@Test
 	public void TestA() {
-		list.clear();
+		// this should not throw an exception
 		map.clear();
-		list.add("select * from users");
-		list.add("select username, created_date from users where username = `ascii:username`");
-		list.add("select videoid, username from video_event where videoid=`uuid:videoid` and username=`ascii:username`");
-		client = new Client();
-		client.setCqls4Select(list);
-		client.setClusterBean(clusterBean);
-		client.setKeyspace("videodb");
+		list.clear();
+		list.add(new CqlStmnt("select json * from users"));
+		list.add(new CqlStmnt(
+				"select JSON username, created_date from users where username = `ascii:username`"));
+		list.add(new CqlStmnt(
+				"select videoid, username from video_event where videoid=`uuid:videoid` and username=`ascii:username`"));
 		try {
+			list.get(0).afterPropertiesSet();
+			list.get(1).afterPropertiesSet();
+			list.get(2).afterPropertiesSet();
+			client = new Client();
+			client.setClusterBean(clusterBean);
+			client.setCqls(list);
+			client.setKeyspace("videodb");
 			client.afterPropertiesSet();
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -82,23 +91,31 @@ public class MatchingTest {
 		}
 		cqlList = client.getCqlStmnts4Select();
 		assertTrue(cqlList != null);
+		
 		assertTrue(cqlList.get(0).getNumKeyTokens() == 0);
 		assertTrue(cqlList.get(1).getNumKeyTokens() == 1);
 		assertTrue(cqlList.get(2).getNumKeyTokens() == 2);
+		
 		assertFalse(cqlList.get(0).isPrepared());
 		assertTrue(cqlList.get(1).isPrepared());
 		assertTrue(cqlList.get(2).isPrepared());
+		
+		assertTrue(cqlList.get(0).isJsonSelect());
+		assertTrue(cqlList.get(1).isJsonSelect());
+		assertFalse(cqlList.get(2).isJsonSelect());
+		
+		
 		CqlStmnt stmnt = CqlStmnt.getMatch(cqlList, map.keySet());
 		assertTrue(stmnt != null);
-		assertTrue("select * from users".equals(stmnt.getOriginalStr()));
+		assertTrue("select json * from users".equals(stmnt.getStatement()));
 		map.put("username", "joef551");
 		stmnt = CqlStmnt.getMatch(cqlList, map.keySet());
 		assertTrue(stmnt != null);
-		assertTrue("select username , created_date from users where username = ?"
-				.equals(stmnt.getPreparedStr()));		
+		assertTrue("select JSON username , created_date from users where username = ?"
+				.equals(stmnt.getPreparedStr()));
 		map.put("videoid", "3984793");
 		stmnt = CqlStmnt.getMatch(cqlList, map.keySet());
-		assertTrue(stmnt != null);		
+		assertTrue(stmnt != null);
 		assertTrue("select videoid , username from video_event where videoid= ? and username= ?"
 				.equals(stmnt.getPreparedStr()));
 		map.put("foobar", "3984793");
@@ -108,7 +125,5 @@ public class MatchingTest {
 		map.put("foo", "joef551");
 		stmnt = CqlStmnt.getMatch(cqlList, map.keySet());
 		assertTrue(stmnt == null);
-		
-		
 	}
 }

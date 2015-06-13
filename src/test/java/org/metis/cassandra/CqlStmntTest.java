@@ -29,15 +29,15 @@ import static org.junit.Assert.*;
 
 /**
  * Runs a lot of tests against the creation and validation of the CQL
- * statements. 
+ * statements.
  * 
  */
 
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
 public class CqlStmntTest {
-	private static Client client;
-	private static ArrayList<String> list = new ArrayList<String>();
-	// private static Cluster cluster;
+	private static CqlStmnt cqlStmnt;
+	private Client client;
+	private static ArrayList<CqlStmnt> list = new ArrayList<CqlStmnt>();
 	private static ClusterBean clusterBean;
 	static private ApplicationContext context = null;
 
@@ -58,8 +58,13 @@ public class CqlStmntTest {
 					.println("ERROR: unable to load spring context, got this exception: \n"
 							+ be.getLocalizedMessage());
 			be.printStackTrace();
+			throw be;
 		}
 		clusterBean = context.getBean(ClusterBean.class);
+
+		if (clusterBean == null) {
+			throw new Exception("ERROR: no cluster bean found in registry");
+		}
 	}
 
 	@Test
@@ -67,16 +72,100 @@ public class CqlStmntTest {
 
 		List<CqlStmnt> cqlList = null;
 
+		// should not throw an exception
+		String cql = "delete from video_event    where username = `text:username`";
+		cqlStmnt = new CqlStmnt(cql);
+		try {
+			cqlStmnt.afterPropertiesSet();
+		} catch (Exception e) {
+			fail("ERROR: got this exception: " + e.getMessage());
+		}
+		assertEquals(
+				true,
+				cqlStmnt.getStatement()
+						.equals("delete from video_event where username = `text:username`"));
+
+		
+		// should not throw an exception
+		cql = "select username , created_date from users where username = `ascii:username`";
+		cqlStmnt = new CqlStmnt(cql);
+		try {
+			cqlStmnt.afterPropertiesSet();
+		} catch (Exception e) {
+			fail("ERROR: got this exception: " + e.getMessage());
+		}
+		assertEquals(
+				true,
+				cqlStmnt.getStatement()
+						.equals("select username , created_date from users where username = `ascii:username`"));
+		
+		
+		// should not throw an exception
+		cql = "select username , created_date from users where username = `  ascii  :  username `";
+		cqlStmnt = new CqlStmnt(cql);
+		try {
+			cqlStmnt.afterPropertiesSet();
+		} catch (Exception e) {
+			fail("ERROR: got this exception: " + e.getMessage());
+		}
+		assertEquals(
+				true,
+				cqlStmnt.getStatement()
+						.equals("select username , created_date from users where username = `ascii:username`"));
+		
+		
+		// should not throw an exception
+		cql = "select username , created_date from users where username = `  ascii  "
+				+ ":  "
+				+ "username `";
+		cqlStmnt = new CqlStmnt(cql);
+		try {
+			cqlStmnt.afterPropertiesSet();
+		} catch (Exception e) {
+			fail("ERROR: got this exception: " + e.getMessage());
+		}
+		assertEquals(
+				true,
+				cqlStmnt.getStatement()
+						.equals("select username , created_date from users where username = `ascii:username`"));
+		
+		// should not throw an exception
+		cql = "    select      username,created_date     from users where username = `  ascii  "
+				+ ":  "
+				+ "username `";
+		cqlStmnt = new CqlStmnt(cql);
+		try {
+			cqlStmnt.afterPropertiesSet();
+		} catch (Exception e) {
+			fail("ERROR: got this exception: " + e.getMessage());
+		}
+		assertEquals(
+				true,
+				cqlStmnt.getStatement()
+						.equals("select username , created_date from users where username = `ascii:username`"));
+		
+		// should not throw an exception
+		cql = "    select  \n    username , created_date     from users where username = `  ascii  "
+				+ ":  "
+				+ "username `";
+		cqlStmnt = new CqlStmnt(cql);
+		try {
+			cqlStmnt.afterPropertiesSet();
+		} catch (Exception e) {
+			fail("ERROR: got this exception: " + e.getMessage());
+		}		
+		assertEquals(
+				true,
+				cqlStmnt.getStatement()
+						.equals("select username , created_date from users where username = `ascii:username`"));
+		
+
 		// this cql should throw an exception because of the empty field
 		// definition
-		String cql = "select first, lastju	jmih from users where first=``";
-		list.add(cql);
-		client = new Client();
-		client.setCqls4Select(list);
-		client.setClusterBean(clusterBean);
-		client.setKeyspace("videodb");
+		cql = "select first, lastju	jmih from users where first=``";
+		cqlStmnt = new CqlStmnt(cql);
 		try {
-			client.afterPropertiesSet();
+			cqlStmnt.afterPropertiesSet();
 			fail("ERROR: did not get Exception for this invalid "
 					+ "cql statement: " + cql);
 		} catch (Exception e) {
@@ -90,10 +179,9 @@ public class CqlStmntTest {
 		// setCqls4Select will throw an exception because statement doesn't
 		// start with select
 		cql = "selectx * from track_by_artist";
-		list.add(cql);
-		client = new Client();
+		cqlStmnt = new CqlStmnt(cql);
 		try {
-			client.setCqls4Select(list);
+			cqlStmnt.afterPropertiesSet();
 			fail("ERROR: did not get Exception for this invalid "
 					+ "cql statement: " + cql);
 		} catch (Exception e) {
@@ -101,7 +189,6 @@ public class CqlStmntTest {
 				e.printStackTrace();
 				fail("ERROR: did not get IllegalArgumentException "
 						+ "got this instead: " + e.getClass().getName());
-
 			}
 		}
 
@@ -109,10 +196,9 @@ public class CqlStmntTest {
 		// start with valid method
 		cql = "insertx into artists_by_first_letter (first_letter,artist) "
 				+ "values (`text:first_letter`, `text:artist`)";
-		list.add(cql);
-		client = new Client();
+		cqlStmnt = new CqlStmnt(cql);
 		try {
-			client.setCqls4Update(list);
+			cqlStmnt.afterPropertiesSet();
 			fail("ERROR: did not get Exception for this invalid "
 					+ "cql statement: " + cql);
 		} catch (Exception e) {
@@ -126,14 +212,9 @@ public class CqlStmntTest {
 		// this cql should throw an exception because the parameterized field's
 		// definition is not fully defined
 		cql = "select first from users where first=`int`";
-		list.clear();
-		list.add(cql);
-		client = new Client();
-		client.setCqls4Select(list);
-		client.setClusterBean(clusterBean);
-		client.setKeyspace("videodb");
+		cqlStmnt = new CqlStmnt(cql);
 		try {
-			client.afterPropertiesSet();
+			cqlStmnt.afterPropertiesSet();
 			fail("ERROR: did not get Exception for this invalid cql "
 					+ "statement: " + cql);
 		} catch (Exception e) {
@@ -146,14 +227,10 @@ public class CqlStmntTest {
 		// this cql should throw an exception because the field's
 		// definition is not fully defined
 		cql = "select first from users where first=`:id`";
-		list.clear();
-		list.add(cql);
-		client = new Client();
-		client.setClusterBean(clusterBean);
-		client.setCqls4Select(list);
-		client.setKeyspace("videodb");
+		cqlStmnt = new CqlStmnt(cql);
+
 		try {
-			client.afterPropertiesSet();
+			cqlStmnt.afterPropertiesSet();
 			fail("ERROR: did not get Exception for this invalid cql "
 					+ "statement: " + cql);
 		} catch (Exception e) {
@@ -166,14 +243,9 @@ public class CqlStmntTest {
 		// this cql should throw an exception because the field's
 		// definition is not fully defined
 		cql = "select first from users where first=`:`";
-		list.clear();
-		list.add(cql);
-		client = new Client();
-		client.setCqls4Select(list);
-		client.setClusterBean(clusterBean);
-		client.setKeyspace("videodb");
+		cqlStmnt = new CqlStmnt(cql);
 		try {
-			client.afterPropertiesSet();
+			cqlStmnt.afterPropertiesSet();
 			fail("ERROR: did not get Exception for this invalid "
 					+ "cql statement: " + cql);
 		} catch (Exception e) {
@@ -186,14 +258,9 @@ public class CqlStmntTest {
 		// this cql should throw an exception because the field's
 		// definition is not fully defined
 		cql = "select first from users where first=`::`";
-		list.clear();
-		list.add(cql);
-		client = new Client();
-		client.setCqls4Select(list);
-		client.setClusterBean(clusterBean);
-		client.setKeyspace("videodb");
+		cqlStmnt = new CqlStmnt(cql);
 		try {
-			client.afterPropertiesSet();
+			cqlStmnt.afterPropertiesSet();
 			fail("ERROR: did not get Exception for this invalid "
 					+ "cql statement: " + cql);
 		} catch (Exception e) {
@@ -206,14 +273,9 @@ public class CqlStmntTest {
 		// this cql should throw an exception because the parameter doesn't have
 		// a closing backtick
 		cql = "select first from users where first = `int:first";
-		list.clear();
-		list.add(cql);
-		client = new Client();
-		client.setCqls4Select(list);
-		client.setClusterBean(clusterBean);
-		client.setKeyspace("videodb");
+		cqlStmnt = new CqlStmnt(cql);
 		try {
-			client.afterPropertiesSet();
+			cqlStmnt.afterPropertiesSet();
 			fail("ERROR: did not get Exception for this invalid cql "
 					+ "statement: " + cql);
 		} catch (Exception e) {
@@ -222,14 +284,9 @@ public class CqlStmntTest {
 		// this cql should throw an exception because the parameter doesn't have
 		// a starting backtick
 		cql = "select first from users where first = int:first`";
-		list.clear();
-		list.add(cql);
-		client = new Client();
-		client.setCqls4Select(list);
-		client.setClusterBean(clusterBean);
-		client.setKeyspace("videodb");
+		cqlStmnt = new CqlStmnt(cql);
 		try {
-			client.afterPropertiesSet();
+			cqlStmnt.afterPropertiesSet();
 			fail("ERROR: did not get Exception for this invalid cql "
 					+ "statement: " + cql);
 		} catch (Exception e) {
@@ -239,14 +296,9 @@ public class CqlStmntTest {
 		// this cql should throw an exception because 'integer' is not a valid
 		// type
 		cql = "select first from users where first=`integer:first`";
-		list.clear();
-		list.add(cql);
-		client = new Client();
-		client.setCqls4Select(list);
-		client.setClusterBean(clusterBean);
-		client.setKeyspace("videodb");
+		cqlStmnt = new CqlStmnt(cql);
 		try {
-			client.afterPropertiesSet();
+			cqlStmnt.afterPropertiesSet();
 			fail("ERROR: did not get Exception for this invalid cql "
 					+ "statement: " + cql);
 		} catch (Exception e) {
@@ -259,14 +311,9 @@ public class CqlStmntTest {
 		// this cql should throw an exception because 'nvarchar' is not a valid
 		// type
 		cql = "select first from users where first=`nvarchar:first`";
-		list.clear();
-		list.add(cql);
-		client = new Client();
-		client.setCqls4Select(list);
-		client.setClusterBean(clusterBean);
-		client.setKeyspace("videodb");
+		cqlStmnt = new CqlStmnt(cql);
 		try {
-			client.afterPropertiesSet();
+			cqlStmnt.afterPropertiesSet();
 			fail("ERROR: did not get Exception for this invalid cql "
 					+ "statement: " + cql);
 		} catch (Exception e) {
@@ -280,13 +327,16 @@ public class CqlStmntTest {
 		// statements with the same 'signature' being assigned to the
 		// select method
 		list.clear();
-		list.add("select first from users where first=`int:first`");
-		list.add("select last from users where first=`int:first`");
-		client = new Client();
-		client.setCqls4Select(list);
-		client.setClusterBean(clusterBean);
-		client.setKeyspace("videodb");
+		list.add(new CqlStmnt("select first from users where first=`int:first`"));
+		list.add(new CqlStmnt("select last from users where first=`int:first`"));
 		try {
+			list.get(0).afterPropertiesSet();
+			list.get(1).afterPropertiesSet();
+			client = new Client();
+			client.setCqls(list);
+			client.setClusterBean(clusterBean);
+			client.setKeyspace("videodb");
+
 			client.afterPropertiesSet();
 			fail("ERROR: did not get Exception for duplicate cql test");
 		} catch (Exception ignore) {
@@ -296,13 +346,16 @@ public class CqlStmntTest {
 		// statements with the same 'signature' being assigned to the
 		// select
 		list.clear();
-		list.add("select first from users where first=`int:first`");
-		list.add("select last from users where first=`int:FIRSt`");
-		client = new Client();
-		client.setCqls4Select(list);
-		client.setClusterBean(clusterBean);
-		client.setKeyspace("videodb");
+		list.add(new CqlStmnt("select first from users where first=`int:first`"));
+		list.add(new CqlStmnt("select last from users where first=`int:FIRSt`"));
 		try {
+			list.get(0).afterPropertiesSet();
+			list.get(1).afterPropertiesSet();
+			client = new Client();
+			client.setCqls(list);
+			client.setClusterBean(clusterBean);
+			client.setKeyspace("videodb");
+
 			client.afterPropertiesSet();
 			fail("ERROR: did not get Exception for duplicate cql test");
 		} catch (Exception ignore) {
@@ -311,13 +364,17 @@ public class CqlStmntTest {
 		// this should throw an exception because the two cql statements
 		// have the same signature.
 		list.clear();
-		list.add("insert into fubar (name,phone) values (`ascii:name`,`text:phone`)");
-		list.add("insert into foobar (name,phone) values (`text:name`,`text:phone`)");
-		client = new Client();
-		client.setCqls4Insert(list);
-		client.setClusterBean(clusterBean);
-		client.setKeyspace("videodb");
+		list.add(new CqlStmnt(
+				"insert into fubar (name,phone) values (`ascii:name`,`text:phone`)"));
+		list.add(new CqlStmnt(
+				"insert into foobar (name,phone) values (`text:name`,`text:phone`)"));
 		try {
+			list.get(0).afterPropertiesSet();
+			list.get(1).afterPropertiesSet();
+			client = new Client();
+			client.setCqls(list);
+			client.setClusterBean(clusterBean);
+			client.setKeyspace("videodb");
 			client.afterPropertiesSet();
 			fail("ERROR: did not get Exception for duplicate cql test");
 		} catch (Exception ignore) {
@@ -326,14 +383,9 @@ public class CqlStmntTest {
 		// this should throw an exception because "ascii" is not a collection
 		// type
 		cql = "select first from users where first=`ascii:text:first`";
-		list.clear();
-		list.add(cql);
-		client = new Client();
-		client.setClusterBean(clusterBean);
-		client.setCqls4Select(list);
-		client.setKeyspace("videodb");
+		cqlStmnt = new CqlStmnt(cql);
 		try {
-			client.afterPropertiesSet();
+			cqlStmnt.afterPropertiesSet();
 			fail("ERROR: did not get Exception for this invalid cql "
 					+ "statement: " + cql);
 		} catch (Exception e) {
@@ -345,14 +397,9 @@ public class CqlStmntTest {
 
 		// same as above, but for insert
 		cql = "insert into foo values(`text:ascii:first`)";
-		list.clear();
-		list.add(cql);
-		client = new Client();
-		client.setCqls4Insert(list);
-		client.setClusterBean(clusterBean);
-		client.setKeyspace("videodb");
+		cqlStmnt = new CqlStmnt(cql);
 		try {
-			client.afterPropertiesSet();
+			cqlStmnt.afterPropertiesSet();
 			fail("ERROR: did not get Exception for this invalid cql "
 					+ "statement: " + cql);
 		} catch (Exception e) {
@@ -364,14 +411,9 @@ public class CqlStmntTest {
 
 		// same as above, but for delete
 		cql = "delete from foo where first like `int:long:last`";
-		list.clear();
-		list.add(cql);
-		client = new Client();
-		client.setClusterBean(clusterBean);
-		client.setKeyspace("videodb");
-		client.setCqls4Delete(list);
+		cqlStmnt = new CqlStmnt(cql);
 		try {
-			client.afterPropertiesSet();
+			cqlStmnt.afterPropertiesSet();
 			fail("ERROR: did not get Exception for this invalid cql "
 					+ "statement: " + cql);
 		} catch (Exception e) {
@@ -383,13 +425,15 @@ public class CqlStmntTest {
 
 		// this CQL statement is valid
 		cql = "select username, created_date from users where username = `ascii:username`";
+		cqlStmnt = new CqlStmnt(cql);
 		list.clear();
-		list.add(cql);
-		client = new Client();
-		client.setClusterBean(clusterBean);
-		client.setCqls4Select(list);
-		client.setKeyspace("videodb");
+		list.add(cqlStmnt);
 		try {
+			cqlStmnt.afterPropertiesSet();
+			client = new Client();
+			client.setCqls(list);
+			client.setClusterBean(clusterBean);
+			client.setKeyspace("videodb");
 			client.afterPropertiesSet();
 		} catch (Exception e) {
 			fail("ERROR: got this exception: " + e.getMessage());
@@ -400,22 +444,23 @@ public class CqlStmntTest {
 				cqlList.get(0)
 						.getPreparedStr()
 						.equals("select username , created_date from users where username = ?"));
-
 		assertEquals(
 				true,
 				cqlList.get(0)
-						.getOriginalStr()
-						.equals("select username, created_date from users where username = `ascii:username`"));
+						.getStatement()
+						.equals("select username , created_date from users where username = `ascii:username`"));
 
 		// this should not throw an exception
 		cql = "select videoid, username from video_event where videoid=`uuid:videoid` and username=`ascii:username`";
+		cqlStmnt = new CqlStmnt(cql);
 		list.clear();
-		list.add(cql);
-		client = new Client();
-		client.setClusterBean(clusterBean);
-		client.setCqls4Select(list);
-		client.setKeyspace("videodb");
+		list.add(cqlStmnt);
 		try {
+			cqlStmnt.afterPropertiesSet();
+			client = new Client();
+			client.setCqls(list);
+			client.setClusterBean(clusterBean);
+			client.setKeyspace("videodb");
 			client.afterPropertiesSet();
 		} catch (Exception e) {
 			fail("ERROR: got this exception: " + e.getMessage());
@@ -430,13 +475,61 @@ public class CqlStmntTest {
 
 		// should not throw an exception
 		cql = "delete from video_event where username = `text:username`";
+		cqlStmnt = new CqlStmnt(cql);
 		list.clear();
-		list.add(cql);
-		client = new Client();
-		client.setClusterBean(clusterBean);
-		client.setCqls4Delete(list);
-		client.setKeyspace("videodb");
+		list.add(cqlStmnt);
 		try {
+			cqlStmnt.afterPropertiesSet();
+			client = new Client();
+			client.setCqls(list);
+			client.setClusterBean(clusterBean);
+			client.setKeyspace("videodb");
+			client.afterPropertiesSet();
+		} catch (Exception e) {
+			fail("ERROR: got this exception on single quote test: "
+					+ e.getMessage());
+		}
+		cqlList = client.getCqlStmnts4Delete();
+		assertEquals(
+				true,
+				cqlList.get(0).getPreparedStr()
+						.equals("delete from video_event where username = ?"));
+
+		// should not throw an exception
+		cql = "delete from video_event where username = "
+				+ "`   text    :    username`";
+		cqlStmnt = new CqlStmnt(cql);
+		list.clear();
+		list.add(cqlStmnt);
+		try {
+			cqlStmnt.afterPropertiesSet();
+			client = new Client();
+			client.setCqls(list);
+			client.setClusterBean(clusterBean);
+			client.setKeyspace("videodb");
+			client.afterPropertiesSet();
+		} catch (Exception e) {
+			fail("ERROR: got this exception on single quote test: "
+					+ e.getMessage());
+		}
+		cqlList = client.getCqlStmnts4Delete();
+		assertEquals(
+				true,
+				cqlList.get(0).getPreparedStr()
+						.equals("delete from video_event where username = ?"));
+
+		// should not throw an exception
+		cql = "delete from video_event where username = " + "`   text    :    "
+				+ "username`";
+		cqlStmnt = new CqlStmnt(cql);
+		list.clear();
+		list.add(cqlStmnt);
+		try {
+			cqlStmnt.afterPropertiesSet();
+			client = new Client();
+			client.setCqls(list);
+			client.setClusterBean(clusterBean);
+			client.setKeyspace("videodb");
 			client.afterPropertiesSet();
 		} catch (Exception e) {
 			fail("ERROR: got this exception on single quote test: "
@@ -451,103 +544,73 @@ public class CqlStmntTest {
 		// should not throw an exception
 		cql = "insert into video_event (videoid,username) "
 				+ "values (blobAsUuid(timeuuidAsBlob(now())), `text:username`)";
-		list.clear();
-		list.add(cql);
-		client = new Client();
-		client.setClusterBean(clusterBean);
-		client.setCqls4Insert(list);
-		client.setKeyspace("videodb");
+		cqlStmnt = new CqlStmnt(cql);
 		try {
-			client.afterPropertiesSet();
+			cqlStmnt.afterPropertiesSet();
 		} catch (Exception e) {
 			fail("ERROR: got this exception on single quote test: "
 					+ e.getMessage());
 		}
 
-		// should throw an exception b/c we're trying to add an insert into list
-		// of deletes
-		cql = "insert into video_event (videoid,username) "
-				+ "values (blobAsUuid(timeuuidAsBlob(now())), `text:username`)";
-		list.clear();
-		list.add(cql);
-		client = new Client();
-		client.setClusterBean(clusterBean);
-		try {
-			client.setCqls4Delete(list);
-			fail("ERROR: did not get Exception when assigning insert to delete,  "
-					+ "statement: " + cql);
-
-		} catch (Exception e) {
-			if (!(e instanceof IllegalArgumentException)) {
-				fail("ERROR: did not get IllegalArgumentException for this "
-						+ "invalid cql statement: " + cql);
-			}
-		}
-
-		// should throw an exception - similar to above
-		cql = "delete from video_event where username = `text:username`";
-		list.clear();
-		list.add(cql);
-		client = new Client();
-		client.setClusterBean(clusterBean);
-		try {
-			client.setCqls4Insert(list);
-			fail("ERROR: did not get Exception when assigning delete to insert,  "
-					+ "statement: " + cql);
-
-		} catch (Exception e) {
-			if (!(e instanceof IllegalArgumentException)) {
-				fail("ERROR: did not get IllegalArgumentException for this "
-						+ "invalid cql statement: " + cql);
-			}
-		}
-
 		// this should not throw an exception
 		list.clear();
-		list.add("select firstname from users where username=`ascii:first`");
-		list.add("delete from video_event where username = `text:username`");
-		client = new Client();
-		client.setClusterBean(clusterBean);
-		client.setCqls(list);
-		client.setKeyspace("videodb");
+		list.add(new CqlStmnt(
+				"select firstname from users where username=`ascii:first`"));
+		list.add(new CqlStmnt(
+				"delete from video_event where username = `text:username`"));
 		try {
+			list.get(0).afterPropertiesSet();
+			list.get(1).afterPropertiesSet();
+			client = new Client();
+			client.setClusterBean(clusterBean);
+			client.setCqls(list);
+			client.setKeyspace("videodb");
 			client.afterPropertiesSet();
 		} catch (Exception e) {
 			fail("ERROR: got this exception: " + e.getMessage());
 		}
-		assertTrue(client.getCqls4Delete().size() == 1);
-		assertTrue(client.getCqls4Select().size() == 1);
-		assertTrue(client.getCqls4Update().isEmpty());
-		assertTrue(client.getCqls4Insert().isEmpty());
+		assertTrue(client.getCqlStmnts4Delete().size() == 1);
+		assertTrue(client.getCqlStmnts4Select().size() == 1);
+		assertTrue(client.getCqlStmnts4Update().isEmpty());
+		assertTrue(client.getCqlStmnts4Insert().isEmpty());
 
 		// this should not throw an exception
 		list.clear();
-		list.add("select firstname from users where username=`ascii:first`");
-		list.add("select lastname from users where username=`ascii:last`");
-		list.add("delete from video_event where username = `text:username`");
-		client = new Client();
-		client.setClusterBean(clusterBean);
-		client.setCqls(list);
-		client.setKeyspace("videodb");
+		list.add(new CqlStmnt(
+				"select firstname from users where username=`ascii:first`"));
+		list.add(new CqlStmnt(
+				"select lastname from users where username=`ascii:last`"));
+		list.add(new CqlStmnt(
+				"delete from video_event where username = `text:username`"));
 		try {
+			list.get(0).afterPropertiesSet();
+			list.get(1).afterPropertiesSet();
+			list.get(2).afterPropertiesSet();
+			client = new Client();
+			client.setClusterBean(clusterBean);
+			client.setCqls(list);
+			client.setKeyspace("videodb");
 			client.afterPropertiesSet();
 		} catch (Exception e) {
 			fail("ERROR: got this exception: " + e.getMessage());
 		}
-		assertTrue(client.getCqls4Delete().size() == 1);
-		assertTrue(client.getCqls4Select().size() == 2);
-		assertTrue(client.getCqls4Update().isEmpty());
-		assertTrue(client.getCqls4Insert().isEmpty());
+		assertTrue(client.getCqlStmnts4Delete().size() == 1);
+		assertTrue(client.getCqlStmnts4Select().size() == 2);
+		assertTrue(client.getCqlStmnts4Update().isEmpty());
+		assertTrue(client.getCqlStmnts4Insert().isEmpty());
 
 		// this should throw an exception
 		list.clear();
-		list.add("select firstname from users where username=`ascii:first`");
-		list.add("FUBAR from video_event where username = `text:username`");
+		list.add(new CqlStmnt(
+				"select firstname from users where username=`ascii:first`"));
+		list.add(new CqlStmnt(
+				"FUBAR from video_event where username = `text:username`"));
 		client = new Client();
 		client.setClusterBean(clusterBean);
 		client.setKeyspace("videodb");
 		try {
-			client.setCqls(list);
+			list.get(0).afterPropertiesSet();
+			list.get(1).afterPropertiesSet();
 			fail("ERROR: did not get Exception when assigning bogus delete");
 		} catch (Exception e) {
 			if (!(e instanceof IllegalArgumentException)) {

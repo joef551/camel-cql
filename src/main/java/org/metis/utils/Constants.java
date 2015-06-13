@@ -48,9 +48,8 @@ public class Constants {
 	public static final String INSERT_STR = "insert";
 	public static final String SELECT_STR = "select";
 	public static final String CASSANDRA_METHOD = "metis.cql.method";
-	public static final String CASSANDRA_FETCH_SIZE = "metis.cql.fetch.size";
-	public static final String CASSANDRA_CONSISTENCY_LEVEL = "metis.cql.consistency.level";
-	public static final String CASSANDRA_SERIAL_CONSISTENCY_LEVEL = "metis.cql.serial.consistency.level";
+	public static final String CASSANDRA_PAGING_STATE = "metis.cql.paging.state";
 	public static final String UTF8_STR = "utf-8";
+	public static final String JSON_STR = "json";
 
 }

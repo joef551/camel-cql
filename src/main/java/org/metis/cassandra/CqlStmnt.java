@@ -19,43 +19,56 @@ import java.util.HashMap;
 import java.util.Set;
 import java.util.List;
 import java.util.Stack;
+import java.util.concurrent.ConcurrentHashMap;
 
 import com.datastax.driver.core.ConsistencyLevel;
+import com.datastax.driver.core.PagingState;
 import com.datastax.driver.core.Session;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.BoundStatement;
 import com.datastax.driver.core.SimpleStatement;
 import com.datastax.driver.core.Statement;
+import com.datastax.driver.core.exceptions.PagingStateException;
+import com.datastax.driver.core.policies.RetryPolicy;
 
 import org.apache.camel.Message;
 import org.metis.utils.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.BeanNameAware;
+import org.springframework.beans.factory.InitializingBean;
 
 import static org.metis.utils.Constants.*;
 
 /**
- * Object that encapsulates or represents a CQL statement. This object is
- * created by a Client during its lifecycle's initialization phase.
+ * Object that encapsulates or represents a CQL statement.
  */
-public class CqlStmnt {
+public class CqlStmnt implements InitializingBean, BeanNameAware {
 
 	public static final Logger LOG = LoggerFactory.getLogger(CqlStmnt.class);
 
-	// the cassandra session used by this statement
-	private Session session;
+	// the injected statement
+	private String statement;
 
-	// this is the string representation of this CQL statement as provided by
-	// the Spring application context.
-	private String originalStr;
+	// set of properties used to mimic com.datastax.driver.core.Statement
+	private int fetchSize = -1;
+	private boolean pagingState;
+	private boolean tracing;
+	private long defaultTimestamp = -1L;
+	private boolean idempotent;
+	private Boolean myIdempotent = null;
+	private RetryPolicy retryPolicy;
+	private ConsistencyLevel consistencyLevel;
+	private ConsistencyLevel serialConsistencyLevel;
+	private PagingState myPagingState;
+
+	// this bean's id
+	private String beanName;
 
 	// this is the string version of the prepared statement for this CQL
 	// statement; i.e., assuming this is a prepared statement.
 	private String preparedStr = "";
-
-	// used only if this CQL statement is a prepared statement
-	private PreparedStatement preparedStatement;
 
 	// this list contains 'all' the tokens that comprise this CQL statement;
 	// in other words, it contains both regular and key/parameterized tokens
@@ -74,27 +87,18 @@ public class CqlStmnt {
 	// insert, update, etc.
 	private CqlStmntType cqlStmntType;
 
-	private static final int MAX_STACK_SIZE = 50;
-	private Stack<SimpleStatement> simpleStack = new Stack<SimpleStatement>();
-	private Stack<BoundStatement> boundStack = new Stack<BoundStatement>();
+	// marks this as a "SELECT JSON ..." statement
+	private boolean isJsonSelect;
 
-	/**
-	 * Create a CqlStmnt object from the given CQL string and input tokens. The
-	 * tokens were previously created by the static getCQLStmnt method.
-	 * 
-	 * @param originalStr
-	 * @param intokens
-	 * @throws IllegalArgumentException
-	 */
-	// public CqlStmnt(String orig, ArrayList<CqlToken> intokens, Session
-	// session)
-	public CqlStmnt(String orig, ArrayList<CqlToken> intokens)
-			throws IllegalArgumentException, Exception {
-		setSession(session);
-		setOriginalStr(orig);
-		// perform all the initialization and validation tasks for this new
-		// CqlStmnt
-		init(intokens);
+	// a pool, of sorts, that is used to pool prepared and simple statements for
+	// each session that uses this statement
+	private Map<Session, CqlStmntPool> stmntPool = new ConcurrentHashMap<Session, CqlStmntPool>();
+
+	public CqlStmnt() {
+	}
+
+	public CqlStmnt(String statement) {
+		setStatement(statement);
 	}
 
 	/**
@@ -113,19 +117,6 @@ public class CqlStmnt {
 	 */
 	public void setCqlStmntType(CqlStmntType cqlStmntType) {
 		this.cqlStmntType = cqlStmntType;
-	}
-
-	/**
-	 * Get the String representation as originally injected.
-	 * 
-	 * @return
-	 */
-	public String getOriginalStr() {
-		return originalStr;
-	}
-
-	public void setOriginalStr(String originalStr) {
-		this.originalStr = originalStr;
 	}
 
 	/**
@@ -182,19 +173,19 @@ public class CqlStmnt {
 	}
 
 	public boolean isSelect() {
-		return this.getCqlStmntType() == CqlStmntType.SELECT;
+		return getCqlStmntType() == CqlStmntType.SELECT;
 	}
 
 	public boolean isDelete() {
-		return this.getCqlStmntType() == CqlStmntType.DELETE;
+		return getCqlStmntType() == CqlStmntType.DELETE;
 	}
 
 	public boolean isInsert() {
-		return this.getCqlStmntType() == CqlStmntType.INSERT;
+		return getCqlStmntType() == CqlStmntType.INSERT;
 	}
 
 	public boolean isUpdate() {
-		return this.getCqlStmntType() == CqlStmntType.UPDATE;
+		return getCqlStmntType() == CqlStmntType.UPDATE;
 	}
 
 	/**
@@ -331,7 +322,7 @@ public class CqlStmnt {
 			for (CqlStmnt stmnt : stmnts) {
 				if (!stmnt.isPrepared()) {
 					LOG.debug("getMatch: returning this non-prepared statement: "
-							+ stmnt.getOriginalStr());
+							+ stmnt.getStatement());
 					return stmnt;
 				}
 			}
@@ -344,10 +335,10 @@ public class CqlStmnt {
 				+ keys.toString());
 		for (CqlStmnt stmnt : stmnts) {
 			LOG.trace("getMatch: checking against this statement {}",
-					stmnt.getOriginalStr());
+					stmnt.getStatement());
 			if (stmnt.isMatch(keys)) {
 				LOG.debug("getMatch: returning this statement: "
-						+ stmnt.getOriginalStr());
+						+ stmnt.getStatement());
 				return stmnt;
 			}
 		}
@@ -367,12 +358,50 @@ public class CqlStmnt {
 	 * @throws IllegalArgumentException
 	 * @throws Exception
 	 */
-	public static CqlStmnt getCQLStmnt(String cql)
-			throws IllegalArgumentException, Exception {
+	public void afterPropertiesSet() throws Exception {
 
-		if (cql == null || cql.isEmpty()) {
+		LOG.debug(getBeanName() + ":afterPropertiesSet: starting statement = ["
+				+ getStatement() + "]");
+
+		if (getStatement() == null || getStatement().isEmpty()) {
 			throw new IllegalArgumentException(
 					"getCQLTokens: cql string is null or empty");
+		}
+
+		// lets take out any extra white spaces from the injected statement
+		String[] tokens = getStatement().trim().split(DELIM);
+		if (tokens == null || tokens.length < 2) {
+			if (tokens != null) {
+				throw new IllegalArgumentException(
+						"getCQLTokens: detected invalid token count of "
+								+ tokens.length);
+			} else {
+				throw new IllegalArgumentException(
+						"getCQLTokens: detected null tokens array");
+			}
+		}
+		String cql2 = EMPTY_STR;
+		for (int i = 0; i < tokens.length; i++) {
+			cql2 += tokens[i].trim();
+			if (i < tokens.length - 1) {
+				cql2 += SPACE_STR;
+			}
+		}
+		// set the new trimmed statement
+		setStatement(cql2);
+
+		// begin initial validation work
+		if (UPDATE_STR.equalsIgnoreCase(tokens[0])) {
+			valCql4Update(getStatement());
+		} else if (DELETE_STR.equalsIgnoreCase(tokens[0])) {
+			valCql4Delete(getStatement());
+		} else if (SELECT_STR.equalsIgnoreCase(tokens[0])) {
+			valCql4Select(getStatement());
+		} else if (INSERT_STR.equalsIgnoreCase(tokens[0])) {
+			valCql4Insert(getStatement());
+		} else {
+			throw new IllegalArgumentException("invalid CQL statement: "
+					+ getStatement());
 		}
 
 		// remove spaces that may be embedded in the field tokens. for example:
@@ -387,15 +416,14 @@ public class CqlStmnt {
 		// remove spaces will also ensure that any ` ... ` strings are
 		// surrounded by spaces, thus also ensuring the entire string is
 		// treated as one token
-		String cql2 = removeSpaces(cql);
+		setStatement(removeSpaces(getStatement()));
 
-		// split the cql string into tokens where the delimiter is any number of
-		// white spaces. a cql statement must have at least 2 tokens
-		String[] tokens = cql2.trim().split(DELIM);
-		if (tokens == null || tokens.length < 2) {
-			throw new IllegalArgumentException(
-					"Invalid CQL statement - insufficent number of tokens");
-		}
+		LOG.debug(getBeanName() + ":afterPropertiesSet: final statement = ["
+				+ getStatement() + "]");
+
+		// split the final statement into tokens; they will be converted to
+		// CqlTokens
+		tokens = getStatement().trim().split(DELIM);
 
 		// the list that will hold the resulting CqlTokens
 		ArrayList<CqlToken> tList = new ArrayList<CqlToken>();
@@ -446,8 +474,9 @@ public class CqlStmnt {
 				tList.add(new CqlToken(token));
 			}
 		}
-		// create and return a CqlStmnt from the given tokens
-		return new CqlStmnt(cql, tList);
+		// finish this statement's initialization based on the derived tokens
+		init(tList);
+		// return new CqlStmnt(cql, tList);
 	}
 
 	/**
@@ -462,11 +491,13 @@ public class CqlStmnt {
 		Map<String, Object> params = (inParams == null) ? new HashMap<String, Object>()
 				: inParams;
 
-		LOG.debug("execute: executing this original statement: {} ",
-				getOriginalStr());
-		LOG.debug("execute: executing this prepared statement: {} ",
+		LOG.debug(getBeanName() + ":execute: executing this statement: {} ",
+				getStatement());
+		LOG.debug(getBeanName()
+				+ ":execute: executing this prepared statement: {} ",
 				getPreparedStr());
-		LOG.debug("execute: executing with this number {} of params",
+		LOG.debug(getBeanName()
+				+ ":execute: executing with this number {} of params",
 				params.size());
 
 		if (session == null) {
@@ -474,82 +505,84 @@ public class CqlStmnt {
 			return null;
 		} else if (session.isClosed()) {
 			LOG.error("execute: session is closed");
+			stmntPool.remove(session);
 			return null;
+		}
+
+		// grab the statement pool pertaining to the session.
+		// if one does not exist, create one
+		CqlStmntPool cqlStmntPool = stmntPool.get(session);
+		if (cqlStmntPool == null) {
+			cqlStmntPool = new CqlStmntPool();
+			stmntPool.put(session, cqlStmntPool);
 		}
 
 		// if this CQL statement is a prepared statement, ensure that it has
-		// been prepared
-		if (isPrepared() && getPreparedStatement() == null) {
-			setPreparedStatement(session.prepare(getPreparedStr()));
+		// been prepared for this session
+		if (isPrepared() && cqlStmntPool.getPreparedStatement() == null) {
+			cqlStmntPool
+					.setPreparedStatement(session.prepare(getPreparedStr()));
 		}
 
-		// grab some default info from Cassy session
-		ConsistencyLevel cLevel = session.getCluster().getConfiguration()
-				.getQueryOptions().getConsistencyLevel();
-		ConsistencyLevel sLevel = session.getCluster().getConfiguration()
-				.getQueryOptions().getSerialConsistencyLevel();
-		int fetchSize = session.getCluster().getConfiguration()
-				.getQueryOptions().getFetchSize();
+		// grab some default info from Cassy session (if required)
+		ConsistencyLevel cLevel = (getConsistencyLevel() != null) ? getConsistencyLevel()
+				: session.getCluster().getConfiguration().getQueryOptions()
+						.getConsistencyLevel();
 
-		// look for session level params in the in message
-		Object tmpObj = inMsg.getHeader(CASSANDRA_CONSISTENCY_LEVEL);
-		if (tmpObj != null) {
-			try {
-				cLevel = ConsistencyLevel.valueOf((String) tmpObj);
-			} catch (Exception e) {
-				LOG.warn(
-						"execute: Invalid consistency level {} in map, using default",
-						(String) tmpObj);
-			}
-		}
-		tmpObj = inMsg.getHeader(CASSANDRA_SERIAL_CONSISTENCY_LEVEL);
-		if (tmpObj != null) {
-			try {
-				sLevel = ConsistencyLevel.valueOf((String) tmpObj);
-			} catch (Exception e) {
-				LOG.warn(
-						"execute: Invalid serial consistency level {} in map, using default",
-						(String) tmpObj);
-			}
-		}
-		tmpObj = inMsg.getHeader(CASSANDRA_FETCH_SIZE);
-		if (tmpObj != null) {
-			try {
-				fetchSize = Integer.valueOf((String) tmpObj);
-			} catch (Exception e) {
-				LOG.warn(
-						"execute: Invalid fetch size {} in map, using default",
-						(String) tmpObj);
-			}
-		}
+		ConsistencyLevel sLevel = (getSerialConsistencyLevel() != null) ? getSerialConsistencyLevel()
+				: session.getCluster().getConfiguration().getQueryOptions()
+						.getSerialConsistencyLevel();
 
-		LOG.debug("execute: consistency level: {} ", cLevel.toString());
-		LOG.debug("execute: seriel consistency level: {} ", sLevel.toString());
-		LOG.debug("execute: fetchSize: {} ", fetchSize);
+		int fetchSize = (getFetchSize() >= 0) ? getFetchSize() : session
+				.getCluster().getConfiguration().getQueryOptions()
+				.getFetchSize();
+
+		RetryPolicy retryPolicy = (getRetryPolicy() != null) ? getRetryPolicy()
+				: session.getCluster().getConfiguration().getPolicies()
+						.getRetryPolicy();
+
+		boolean idempotent = (getMyIdempotent() != null) ? getMyIdempotent()
+				: session.getCluster().getConfiguration().getQueryOptions()
+						.getDefaultIdempotence();
+
+		LOG.debug(getBeanName() + ":execute: consistency level: {} ",
+				cLevel.toString());
+		LOG.debug(getBeanName() + ":execute: seriel consistency level: {} ",
+				sLevel.toString());
+		LOG.debug(getBeanName() + ":execute: fetchSize: {} ", fetchSize);
+		LOG.debug(getBeanName() + ":execute: RetryPolcy : {} ",
+				retryPolicy.toString());
+		LOG.debug(getBeanName() + ":execute: pagingState : {} ",
+				isPagingState());
+		LOG.debug(getBeanName() + ":execute: idempotent : {} ", idempotent);
+		LOG.debug(getBeanName() + ":execute: defaultTimestamp : {} ",
+				getDefaultTimestamp());
 
 		// first, do some light validation work
 		if (params.size() == 0 && isPrepared()) {
-			LOG.error("execute: ERROR, params were not provided "
+			LOG.error(getBeanName()
+					+ ":execute: ERROR, params were not provided "
 					+ "for this prepared statement {}", getPreparedStr());
 			return null;
 		} else if (params.size() > 0 && !isPrepared()) {
-			LOG.error(
-					"execute: ERROR, params were provided "
-							+ "for this static or non-prepared statement that does not "
-							+ "require params {} ", getOriginalStr());
+			LOG.error(getBeanName() + ":execute: ERROR, params were provided "
+					+ "for this static or non-prepared statement "
+					+ "that does not require params {} ", getStatement());
 			return null;
 		}
 
 		// make sure given params match
 		if (params.size() > 0) {
 			if (!isMatch(params.keySet())) {
-				LOG.error("execute: ERROR, given key:value set does not "
+				LOG.error(getBeanName()
+						+ ":execute: ERROR, given key:value set does not "
 						+ "match this statement's key:value set\n"
 						+ getKeyTokens().toString() + "  vs.  "
 						+ params.toString());
 				return null;
 			}
-			LOG.trace("execute: valid param set = " + params.toString());
+			LOG.trace(getBeanName() + ":execute: valid param set = "
+					+ params.toString());
 		}
 
 		Statement stmnt = null;
@@ -557,15 +590,38 @@ public class CqlStmnt {
 		// execute the statement
 		try {
 			// get either a bound or simple statement
-			stmnt = (isPrepared()) ? getBoundStatement() : getSimpleStatement();
+			stmnt = (isPrepared()) ? cqlStmntPool.getBoundStatement()
+					: cqlStmntPool.getSimpleStatement();
 			if (stmnt == null) {
-				LOG.error("execute: ERROR, getBoundStatement() or "
+				LOG.error(getBeanName()
+						+ ":execute: ERROR, getBoundStatement() or "
 						+ "getSimpleStatement() returned null");
 				return null;
 			}
+
+			// now that we've got the statement, set some of its properties
 			stmnt.setFetchSize(fetchSize);
 			stmnt.setConsistencyLevel(cLevel);
 			stmnt.setSerialConsistencyLevel(sLevel);
+			stmnt.setIdempotent(idempotent);
+
+			if (isPagingState() && isSelect()) {
+				String pState = (String) inMsg
+						.getHeader(CASSANDRA_PAGING_STATE);
+				LOG.trace(getBeanName()
+						+ ":execute: paging state retrieved = {}", pState);
+				if (pState != null) {
+
+					stmnt.setPagingState(PagingState.fromString(pState));
+				}
+			}
+
+			if (retryPolicy != null) {
+				stmnt.setRetryPolicy(retryPolicy);
+			}
+			if (getDefaultTimestamp() >= 0L) {
+				stmnt.setDefaultTimestamp(getDefaultTimestamp());
+			}
 
 			if (isPrepared()) {
 				LOG.debug("execute: executing this prepared statement {} ",
@@ -573,10 +629,12 @@ public class CqlStmnt {
 				for (String key : params.keySet()) {
 					CqlToken token = getKeyTokens().get(key);
 					if (token == null) {
-						LOG.error("this parameter key {}, does not have "
-								+ "corresponding parameterized token "
-								+ "in this statement {}", params.get(key),
-								getOriginalStr());
+						LOG.error(
+								getBeanName()
+										+ ":execute:this parameter key {}, does not have "
+										+ "corresponding parameterized token "
+										+ "in this statement {}",
+								params.get(key), getStatement());
 						return null;
 					} else {
 						try {
@@ -584,7 +642,8 @@ public class CqlStmnt {
 									params.get(key));
 						} catch (Exception exc) {
 							LOG.error(
-									"ERROR: while binding objects to bound statement, "
+									getBeanName()
+											+ ":ERROR: while binding objects to bound statement, "
 											+ "caught this exception {} for this param {}",
 									exc.getClass().getName(), key);
 							Utils.dumpStackTrace(exc.getStackTrace());
@@ -593,16 +652,21 @@ public class CqlStmnt {
 					}
 				}
 			} else {
-				LOG.debug("execute: executing this simple statement {} ",
-						getOriginalStr());
+				LOG.debug(getBeanName()
+						+ ":execute: executing this simple statement {} ",
+						getStatement());
 			}
 			resultSet = session.execute(stmnt);
+
+			if (isSelect() && isPagingState()) {
+				setMyPagingState(resultSet.getExecutionInfo().getPagingState());
+			}
 		} catch (Exception exc) {
-			LOG.error("execute: caught this exception {}", exc.getClass()
-					.getName());
+			LOG.error(getBeanName() + ":execute: caught this exception {}", exc
+					.getClass().getName());
 			Utils.dumpStackTrace(exc.getStackTrace());
 		}
-		returnStatement(stmnt);
+		cqlStmntPool.returnStatement(stmnt);
 		return resultSet;
 	}
 
@@ -610,7 +674,115 @@ public class CqlStmnt {
 	 * Returns a String representation of this statement.
 	 */
 	public String toString() {
-		return (isPrepared()) ? getPreparedStr() : getOriginalStr();
+		return (isPrepared()) ? getPreparedStr() : getStatement();
+	}
+
+	/**
+	 * Used for validating CQL statement for select
+	 * 
+	 * @param cql
+	 * @return
+	 * @throws IllegalArgumentException
+	 */
+	private static String valCql4Select(String cql)
+			throws IllegalArgumentException {
+		if (cql != null && cql.length() > 0) {
+			String[] tokens = cql.split(DELIM);
+			if (tokens.length < 2) {
+				throw new IllegalArgumentException(
+						"valSql4Insert: invalid CQL statement - insufficent "
+								+ "number of tokens");
+			} else if (!tokens[0].equalsIgnoreCase(SELECT_STR)) {
+				throw new IllegalArgumentException(
+						"valCql4Select: invalid CQL statement - does not start with 'select'");
+			}
+		} else {
+			throw new IllegalArgumentException(
+					"valCql4Select: invalid CQL statement - empty or null statement");
+		}
+		return cql.trim();
+	}
+
+	/**
+	 * Used for validating CQL statement for insert
+	 * 
+	 * @param cql
+	 * @return
+	 * @throws IllegalArgumentException
+	 */
+	private static String valCql4Insert(String cql)
+			throws IllegalArgumentException {
+		if (cql != null && cql.length() > 0) {
+			String[] tokens = cql.split(DELIM);
+			if (tokens.length < 2) {
+				throw new IllegalArgumentException(
+						"valSql4Insert: invalid CQL statement - insufficent "
+								+ "number of tokens");
+			} else if (!tokens[0].equalsIgnoreCase(INSERT_STR)) {
+				throw new IllegalArgumentException(
+						"valCql4Insert: invalid CQL statement - does not start with 'insert'");
+			}
+		} else {
+			throw new IllegalArgumentException(
+					"valCql4Insert: invalid CQL statement - empty or null statement");
+		}
+		return cql.trim();
+	}
+
+	/**
+	 * Used for validating CQL statement for update
+	 * 
+	 * @param cql
+	 * @return
+	 * @throws IllegalArgumentException
+	 */
+	private static String valCql4Update(String cql)
+			throws IllegalArgumentException {
+		if (cql != null && cql.length() > 0) {
+			String[] tokens = cql.split(DELIM);
+			if (tokens.length < 2) {
+				throw new IllegalArgumentException(
+						"valCql4Update: invalid CQL statement - insufficent "
+								+ "number of tokens");
+			} else if (!tokens[0].equalsIgnoreCase(UPDATE_STR)) {
+				throw new IllegalArgumentException(
+						"valCql4Update: invalid CQL statement - must start with "
+								+ "'update'");
+			}
+		} else {
+			throw new IllegalArgumentException(
+					"valCql4Update: invalid CQL statement - empty or null "
+							+ "statement");
+		}
+		return cql.trim();
+	}
+
+	/**
+	 * Used for validating CQL statement for DELETE
+	 * 
+	 * @param cql
+	 * @return
+	 * @throws IllegalArgumentException
+	 */
+	private static String valCql4Delete(String cql)
+			throws IllegalArgumentException {
+		if (cql != null && cql.length() > 0) {
+			String[] tokens = cql.split(DELIM);
+			if (tokens.length < 2) {
+				throw new IllegalArgumentException(
+						"valSql4Delete: invalid CQL statement - insufficent "
+								+ "number of tokens");
+			} else if (!tokens[0].equalsIgnoreCase(DELETE_STR)) {
+				throw new IllegalArgumentException(
+						"valSql4Delete: invalid CQL statement - must start "
+								+ "with 'delete'");
+			}
+		} else {
+			throw new IllegalArgumentException(
+					"valSql4Delete: invalid CQL statement - empty or null "
+							+ "statement");
+		}
+		return cql.trim();
 	}
 
 	/**
@@ -625,31 +797,48 @@ public class CqlStmnt {
 		char[] cqlChar = cql.toCharArray();
 		char[] cqlChar2 = new char[cqlChar.length * 2];
 		char cstate = SPACE_CHR;
+		char pstate = SPACE_CHR;
 		int index = 0;
 		for (char c : cqlChar) {
 			if (cstate == BACK_QUOTE_CHR) {
+				// if we're processing a param field, then
+				// skip white space chars
 				if (c != SPACE_CHR && c != TAB_CHR && c != CARRIAGE_RETURN_CHR
 						&& c != NEWLINE_CHR) {
 					cqlChar2[index++] = c;
 				}
+				// if next char just read in is a back tic, then we're
+				// finishing up with a param field
 				if (c == BACK_QUOTE_CHR) {
 					cqlChar2[index++] = SPACE_CHR;
+					// exit this state
 					cstate = SPACE_CHR;
 				}
 			} else if (cstate == SINGLE_QUOTE_CHR) {
+				// we don't do anything to whatever is within single quotes!
 				cqlChar2[index++] = c;
+				// leave this state if its an ending single quote char
+				// add a space char after the ending single quote
 				if (c == SINGLE_QUOTE_CHR) {
+					cqlChar2[index++] = SPACE_CHR;
 					cstate = SPACE_CHR;
 				}
-			} else {
+			} else if (cstate != SPACE_CHR || c != SPACE_CHR) {
+
+				// } else {
+				pstate = cstate;
 				cstate = c;
-				if (cstate == BACK_QUOTE_CHR || cstate == COMMA_CHR) {
+				// if we've just read in a back tic or comma, then
+				// precede it with a space
+				if ((cstate == BACK_QUOTE_CHR || cstate == COMMA_CHR)
+						&& pstate != SPACE_CHR) {
 					cqlChar2[index++] = SPACE_CHR;
 				}
 				cqlChar2[index++] = cstate;
 				// surround commas with spaces
 				if (cstate == COMMA_CHR) {
 					cqlChar2[index++] = SPACE_CHR;
+					cstate = SPACE_CHR;
 				}
 			}
 		}
@@ -657,8 +846,8 @@ public class CqlStmnt {
 	}
 
 	/**
-	 * Called by constructor to prep or initialize this CqlStmnt with the given
-	 * CqlTokens. It will also perform some validation.
+	 * Called to prep and/or initialize this CqlStmnt with the given CqlTokens.
+	 * It will also perform some validation.
 	 * 
 	 * @param orig
 	 * @param intokens
@@ -692,7 +881,7 @@ public class CqlStmnt {
 		// mark the statement as being prepared if it has parameterized
 		// tokens
 		if (keyTokensIndex > 0) {
-			setPreparedStr(tmpStr.trim());			
+			setPreparedStr(tmpStr.trim());
 		} else {
 			setPreparedStr(EMPTY_STR);
 		}
@@ -722,7 +911,7 @@ public class CqlStmnt {
 					if (token1.getCqlType() != token2.getCqlType()) {
 						LOG.error("this prepared has duplicate "
 								+ "key names, but with different " + "types: "
-								+ getOriginalStr());
+								+ getStatement());
 						throw new IllegalArgumentException(
 								"CqlStmnt: duplicate key names in a "
 										+ "prepared must have "
@@ -730,7 +919,7 @@ public class CqlStmnt {
 					} else if (!(token1.isCollection() ^ token2.isCollection())) {
 						LOG.error("this prepared has duplicate "
 								+ "key names, but one is a collection "
-								+ "and the other is not: " + getOriginalStr());
+								+ "and the other is not: " + getStatement());
 						throw new IllegalArgumentException(
 								"CqlStmnt: duplicate key names in a "
 										+ "prepared must have "
@@ -740,7 +929,7 @@ public class CqlStmnt {
 									.getCollectionType()) {
 						LOG.error("this prepared has duplicate "
 								+ "key names, but with different collection "
-								+ "types: " + getOriginalStr());
+								+ "types: " + getStatement());
 						throw new IllegalArgumentException(
 								"CqlStmnt: duplicate key names in a "
 										+ "prepared must have "
@@ -767,7 +956,8 @@ public class CqlStmnt {
 		CqlToken tmpToken = getTokens().get(0);
 		if (tmpToken.getValue().equalsIgnoreCase(SELECT_STR)) {
 			setCqlStmntType(CqlStmntType.SELECT);
-
+			// is this a SELECT JSON ... statement?
+			setJsonSelect(getTokens().get(1).isJson());
 		} else if (tmpToken.getValue().equalsIgnoreCase(DELETE_STR)) {
 			setCqlStmntType(CqlStmntType.DELETE);
 
@@ -784,85 +974,295 @@ public class CqlStmnt {
 	}
 
 	/**
-	 * @return the session
+	 * @return the statement
 	 */
-	public Session getSession() {
-		return session;
+	public String getStatement() {
+		return statement;
 	}
 
 	/**
-	 * @param session
-	 *            the session to set
+	 * @param statement
+	 *            the statement to set
 	 */
-	public void setSession(Session session) {
-		this.session = session;
+	public void setStatement(String statement) {
+		this.statement = statement;
 	}
 
 	/**
-	 * @return the preparedStatement
+	 * @return the fetchSize
 	 */
-	public PreparedStatement getPreparedStatement() {
-		return preparedStatement;
+	public int getFetchSize() {
+		return fetchSize;
 	}
 
 	/**
-	 * @param preparedStatement
-	 *            the preparedStatement to set
+	 * @param fetchSize
+	 *            the fetchSize to set
 	 */
-	public void setPreparedStatement(PreparedStatement preparedStatement) {
-		this.preparedStatement = preparedStatement;
+	public void setFetchSize(int fetchSize) {
+		this.fetchSize = fetchSize;
 	}
 
 	/**
-	 * Note that a PreparedStatement object allows you to define specific
-	 * defaults for the different properties of a Statement (Consistency level,
-	 * tracing, ...), in which case those properties will be inherited, as
-	 * default, by every BoundStatement created from the PreparedStatement.
-	 * 
-	 * TODO: can we reuse the BoundStatement and SimpleStatement?
-	 * 
-	 * @return a boundStatement from this prepared statement
+	 * @return the pagingState
 	 */
-	public BoundStatement getBoundStatement() {
-		if (!isPrepared()) {
-			return null;
+	public boolean isPagingState() {
+		return pagingState;
+	}
+
+	/**
+	 * @param pagingState
+	 *            the pagingState to set
+	 */
+	public void setPagingState(boolean pagingState) {
+		this.pagingState = pagingState;
+	}
+
+	/**
+	 * @return the tracing
+	 */
+	public boolean isTracing() {
+		return tracing;
+	}
+
+	/**
+	 * @param tracing
+	 *            the tracing to set
+	 */
+	public void setTracing(boolean tracing) {
+		this.tracing = tracing;
+	}
+
+	/**
+	 * @return the defaultTimestamp
+	 */
+	public long getDefaultTimestamp() {
+		return defaultTimestamp;
+	}
+
+	/**
+	 * @param defaultTimestamp
+	 *            the defaultTimestamp to set
+	 */
+	public void setDefaultTimestamp(long defaultTimestamp) {
+		this.defaultTimestamp = defaultTimestamp;
+	}
+
+	/**
+	 * @return the idempotent
+	 */
+	public boolean isIdempotent() {
+		return idempotent;
+	}
+
+	/**
+	 * @param idempotent
+	 *            the idempotent to set
+	 */
+	public void setIdempotent(boolean idempotent) {
+		this.idempotent = idempotent;
+		this.myIdempotent = new Boolean(idempotent);
+	}
+
+	/**
+	 * @return the retryPolicy
+	 */
+	public RetryPolicy getRetryPolicy() {
+		return retryPolicy;
+	}
+
+	/**
+	 * @param retryPolicy
+	 *            the retryPolicy to set
+	 */
+	public void setRetryPolicy(RetryPolicy retryPolicy) {
+		this.retryPolicy = retryPolicy;
+	}
+
+	/**
+	 * @return the consistencyLevel
+	 */
+	public ConsistencyLevel getConsistencyLevel() {
+		return consistencyLevel;
+	}
+
+	/**
+	 * @param consistencyLevel
+	 *            the consistencyLevel to set
+	 */
+	public void setConsistencyLevel(ConsistencyLevel consistencyLevel) {
+		this.consistencyLevel = consistencyLevel;
+	}
+
+	/**
+	 * @return the serialConsistencyLevel
+	 */
+	public ConsistencyLevel getSerialConsistencyLevel() {
+		return serialConsistencyLevel;
+	}
+
+	/**
+	 * @param serialConsistencyLevel
+	 *            the serialConsistencyLevel to set
+	 */
+	public void setSerialConsistencyLevel(
+			ConsistencyLevel serialConsistencyLevel) {
+		this.serialConsistencyLevel = serialConsistencyLevel;
+	}
+
+	@Override
+	public void setBeanName(String name) {
+		beanName = name;
+	}
+
+	public String getBeanName() {
+		return beanName;
+	}
+
+	/**
+	 * @return the myIdempotent
+	 */
+	public Boolean getMyIdempotent() {
+		return myIdempotent;
+	}
+
+	/**
+	 * @return the stmntPool
+	 */
+	public Map<Session, CqlStmntPool> getStmntPool() {
+		return stmntPool;
+	}
+
+	/**
+	 * @param stmntPool
+	 *            the stmntPool to set
+	 */
+	public void setStmntPool(Map<Session, CqlStmntPool> stmntPool) {
+		this.stmntPool = stmntPool;
+	}
+
+	/**
+	 * @return the isJsonSelect
+	 */
+	public boolean isJsonSelect() {
+		return isJsonSelect;
+	}
+
+	/**
+	 * @param isJsonSelect
+	 *            the isJsonSelect to set
+	 */
+	public void setJsonSelect(boolean isJsonSelect) {
+		this.isJsonSelect = isJsonSelect;
+	}
+
+	/**
+	 * @return the myPagingState
+	 */
+	public PagingState getMyPagingState() {
+		return myPagingState;
+	}
+
+	public String getMyPagingStateStr() {
+		return (getMyPagingState() == null) ? null : getMyPagingState()
+				.toString();
+	}
+
+	/**
+	 * @param myPagingState
+	 *            the myPagingState to set
+	 */
+	public void setMyPagingState(PagingState myPagingState) {
+		this.myPagingState = myPagingState;
+	}
+
+	public void setMyPagingState(String pagingState)
+			throws PagingStateException {
+		if (pagingState != null) {
+			setMyPagingState(PagingState.fromString(pagingState));
 		}
-		synchronized (boundStack) {
-			if (!boundStack.isEmpty()) {
-				return boundStack.pop();
+	}
+
+	private class CqlStmntPool {
+
+		private static final int MAX_STACK_SIZE = 50;
+		private Stack<SimpleStatement> simpleStack = new Stack<SimpleStatement>();
+		private Stack<BoundStatement> boundStack = new Stack<BoundStatement>();
+		// used only if this CQL statement is a prepared statement
+		private PreparedStatement preparedStatement;
+
+		CqlStmntPool() {
+		}
+
+		/**
+		 * Note that a PreparedStatement object allows you to define specific
+		 * defaults for the different properties of a Statement (Consistency
+		 * level, tracing, ...), in which case those properties will be
+		 * inherited, as default, by every BoundStatement created from the
+		 * PreparedStatement.
+		 * 
+		 * TODO: can we reuse the BoundStatement and SimpleStatement?
+		 * 
+		 * @return a boundStatement from this prepared statement
+		 */
+		BoundStatement getBoundStatement() {
+			if (!isPrepared()) {
+				LOG.warn("Attempt to get bound statement from non-prepared statement");
+				return null;
 			}
-		}
-		return getPreparedStatement().bind();
-	}
-
-	public SimpleStatement getSimpleStatement() {
-		if (isPrepared()) {
-			return null;
-		}
-		synchronized (simpleStack) {
-			if (!simpleStack.isEmpty()) {
-				return simpleStack.pop();
+			synchronized (boundStack) {
+				if (!boundStack.isEmpty()) {
+					return boundStack.pop();
+				}
 			}
+			return getPreparedStatement().bind();
 		}
-		return new SimpleStatement(getOriginalStr());
-	}
 
-	public void returnStatement(Statement stmnt) {
-		if (stmnt != null) {
-			if (stmnt instanceof BoundStatement) {
-				synchronized (boundStack) {
-					if (boundStack.size() < MAX_STACK_SIZE) {
-						boundStack.push((BoundStatement) stmnt);
+		SimpleStatement getSimpleStatement() {
+			if (isPrepared()) {
+				return null;
+			}
+			synchronized (simpleStack) {
+				if (!simpleStack.isEmpty()) {
+					return simpleStack.pop();
+				}
+			}
+			return new SimpleStatement(getStatement());
+		}
+
+		void returnStatement(Statement stmnt) {
+			if (stmnt != null) {
+				if (stmnt instanceof BoundStatement) {
+					synchronized (boundStack) {
+						if (boundStack.size() < MAX_STACK_SIZE) {
+							boundStack.push((BoundStatement) stmnt);
+						}
+					}
+				} else {
+					synchronized (simpleStack) {
+						if (simpleStack.size() < MAX_STACK_SIZE) {
+							simpleStack.push((SimpleStatement) stmnt);
+						}
 					}
 				}
-			} else {
-				synchronized (simpleStack) {
-					if (simpleStack.size() < MAX_STACK_SIZE) {
-						simpleStack.push((SimpleStatement) stmnt);
-					}
-				}
 			}
 		}
+
+		/**
+		 * @return the preparedStatement
+		 */
+		public PreparedStatement getPreparedStatement() {
+			return preparedStatement;
+		}
+
+		/**
+		 * @param preparedStatement
+		 *            the preparedStatement to set
+		 */
+		public void setPreparedStatement(PreparedStatement preparedStatement) {
+			this.preparedStatement = preparedStatement;
+		}
+
 	}
 
 }

@@ -17,97 +17,161 @@
 		</property>
 	</bean>
 
+	<!-- A Client bean called user and its injected CQL statements -->
 	<bean id="user" class="org.metis.cassandra.Client">
 		<property name="cqls">
 			<list>
-				<value>select * from users</value>
-				<value>select username from username_video_index where username =
-					`text:username`
-				</value>
-				<value>select username, email from users where username =
-					`text:user`
-				</value>
-				<value>insert into users (username, created_date, email, firstname,
-					lastname, password) values (`text:username`,
-					`timestamp:created_date`, `list:text:email`,
-					`text:firstname`,`text:lastname`,`text:password`)
-				</value>
-				<value>delete from users where username=`text:user`</value>
+				<ref bean="select1" />
+				<ref bean="select2" />
+				<ref bean="select3" />
+				<ref bean="insert1" />
 			</list>
 		</property>
 		<property name="keyspace" value="videodb" />
 		<property name="clusterBean" ref="cluster1" />
 	</bean>
 
+	<!-- A list of CQL statements used for supporting the user Client -->
+	<bean id="select1" class="org.metis.cassandra.CqlStmnt">
+		<property name="statement" value="select * from users" />
+		<property name="fetchSize" value="100" />
+	</bean>
+	<bean id="select2" class="org.metis.cassandra.CqlStmnt">
+		<property name="statement"
+			value="select username from username_video_index where username =
+					`text:username`" />
+	</bean>
+	<bean id="select3" class="org.metis.cassandra.CqlStmnt">
+		<property name="statement"
+			value="select username, email from users where username =
+					`text:user`" />
+	</bean>
+	<bean id="insert1" class="org.metis.cassandra.CqlStmnt">
+		<property name="statement"
+			value="insert into users (username, created_date, email, firstname,
+					lastname, password) values (`text:username`,
+					`timestamp:created_date`, `list:text:email`,
+					`text:firstname`,`text:lastname`,`text:password`)" />
+	</bean>
+
+
+	<!-- A Client bean called videoevent and its injected CQL statements -->
 	<bean id="videoevent" class="org.metis.cassandra.Client">
 		<property name="cqls">
 			<list>
-				<value>select * from video_event</value>
-				<value> select * from video_event where videoid =
-					`uuid:videoid` and
-					username = `text:user`
-				</value>
-				<value>insert into video_event (videoid, username,
+				<ref bean="select4" />
+				<ref bean="select5" />
+				<ref bean="delete1" />
+				<ref bean="insert2" />
+			</list>
+		</property>
+		<property name="keyspace" value="videodb" />
+		<property name="clusterBean" ref="cluster1" />
+	</bean>
+	<!-- A list of CQL statements used for supporting the videoevent Client -->
+	<bean id="select4" class="org.metis.cassandra.CqlStmnt">
+		<property name="statement" value="select * from video_event" />
+	</bean>
+
+	<bean id="select5" class="org.metis.cassandra.CqlStmnt">
+		<property name="statement"
+			value="select * from video_event where videoid =
+					`uuid:videoid` and	username = `text:user`" />
+	</bean>
+
+	<bean id="delete1" class="org.metis.cassandra.CqlStmnt">
+		<property name="statement"
+			value="delete from video_event where videoid =
+					`uuid:videoid` and	username = `text:user`" />
+	</bean>
+	<bean id="insert2" class="org.metis.cassandra.CqlStmnt">
+		<property name="statement"
+			value="insert into video_event (videoid, username,
 					event_timestamp,
 					event, video_timestamp) values
 					(`uuid:username`, `text:user`,
 					`timeuuid:event_timestamp`,
-					`text:event`, `bigint:video_timestamp`)
-				</value>
-				<value>delete from video_event where videoid =
-					`uuid:videoid` and
-					username = `text:user`
-				</value>
-			</list>
-		</property>
-		<property name="keyspace" value="videodb" />
-		<property name="clusterBean" ref="cluster1" />
+					`text:event`, `bigint:video_timestamp`)" />
 	</bean>
 
 
-
+	<!-- The bean used for connecting to a Cassandra cluster -->
 	<bean id="cluster1" class="org.metis.cassandra.ClusterBean">
-		<!-- <property name="clusterName" value="myCluster"/> -->
+		<property name="clusterName" value="myCluster" />
 		<property name="clusterNodes" value="127.0.0.1" />
 		<property name="loadBalancingPolicy" ref="roundRobin" />
 		<property name="reconnectionPolicy" ref="reconnectionPolicy" />
+		<property name="retryPolicy" ref="retryPolicy" />
+		<property name="metricsOptions" ref="metricsOptions" />
 		<property name="protocolOptions" ref="protocolOptions" />
 		<property name="socketOptions" ref="socketOptions" />
+		<property name="poolingOptions" ref="poolingOptions" />
 		<property name="listOfPoolingOptions">
 			<list>
 				<ref bean="localOption" />
 				<ref bean="remoteOption" />
 			</list>
 		</property>
-		<!-- <property name="fetchSize" value="5000" /> -->
-		<!-- <property name="consistencyLevel" value="ONE" /> -->
-		<!-- <property name="serialConsistencyLevel" value="SERIAL" /> -->
+		<property name="queryOptions" ref="queryOptions" />
 	</bean>
 
-
+	<!-- Referenced Beans -->
 	<bean id="roundRobin" class="com.datastax.driver.core.policies.RoundRobinPolicy" />
 	<bean id="reconnectionPolicy"
 		class="com.datastax.driver.core.policies.ExponentialReconnectionPolicy">
 		<constructor-arg type="long" value="10" />
 		<constructor-arg type="long" value="10000" />
 	</bean>
+	<bean id="retryPolicy"
+		class="com.datastax.driver.core.policies.DowngradingConsistencyRetryPolicy" />
+
+	<bean id="metricsOptions" class="com.datastax.driver.core.MetricsOptions">
+		<constructor-arg name="jmxEnabled" value="true" />
+	</bean>
 	<bean id="protocolOptions" class="com.datastax.driver.core.ProtocolOptions">
 		<constructor-arg name="port" value="9042" />
+		<!-- The protocolVersion can be null, in which case the version used will 
+			be the biggest version supported by the first node the driver connects to -->
+		<constructor-arg name="protocolVersion">
+			<bean id="protocolVersion" class="com.datastax.driver.core.ProtocolVersion"
+				factory-method="fromInt">
+				<constructor-arg value="2" />
+			</bean>
+		</constructor-arg>
+		<constructor-arg name="maxSchemaAgreementWaitSeconds"
+			value="2" />
+		<constructor-arg name="sslOptions">
+			<null />
+		</constructor-arg>
+		<constructor-arg name="authProvider">
+			<null />
+		</constructor-arg>
 	</bean>
+	<bean id="socketOptions" class="com.datastax.driver.core.SocketOptions" />
+	<bean id="poolingOptions" class="com.datastax.driver.core.PoolingOptions" />
 	<bean id="localOption" class="org.metis.cassandra.PoolingOption">
 		<property name="distance" value="local" />
-		<property name="coreConnections" value="5" />
-		<property name="maxConnections" value="10" />
-		<property name="minSimultaneousRequests" value="3" />
-		<property name="maxSimultaneousRequests" value="5" />		
+		<property name="coreConnectionsPerHost" value="5" />
+		<property name="maxConnectionsPerHost" value="10" />
+		<property name="maxSimultaneousRequestsPerConnectionThreshold"
+			value="2" />
+		<property name="maxSimultaneousRequestsPerHostThreshold"
+			value="5" />
 	</bean>
 	<bean id="remoteOption" class="org.metis.cassandra.PoolingOption">
 		<property name="distance" value="remote" />
-		<property name="coreConnections" value="2" />
-		<property name="maxConnections" value="5" />
-		<property name="minSimultaneousRequests" value="3" />
-		<property name="maxSimultaneousRequests" value="5" />		
+		<property name="coreConnectionsPerHost" value="2" />
+		<property name="maxConnectionsPerHost" value="10" />
+		<property name="maxSimultaneousRequestsPerConnectionThreshold"
+			value="2" />
+		<property name="maxSimultaneousRequestsPerHostThreshold"
+			value="5" />
 	</bean>
-	<bean id="socketOptions" class="com.datastax.driver.core.SocketOptions" />
 
+	<!-- An example of how to inject an Enum of ONE for the consistency level -->
+	<bean id="queryOptions" class="com.datastax.driver.core.QueryOptions">
+		<property name="consistencyLevel">
+			<util:constant static-field="com.datastax.driver.core.ConsistencyLevel.ONE" />
+		</property>
+	</bean>
 </beans>

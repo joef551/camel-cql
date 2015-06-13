@@ -33,6 +33,8 @@ import com.datastax.driver.core.Row;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static org.metis.utils.Constants.JSON_STR;
+
 /**
  * Represents a string token of a CQL statement. There are two types: regular
  * and key. A regular token is a CQL key word, while a key-token represents a
@@ -54,7 +56,6 @@ public class CqlToken {
 	private DataType.Name cqlType;
 	private DataType.Name collectionType;
 	private List<Integer> positions = new ArrayList<Integer>();
-	
 
 	/**
 	 * Create a parameterized token
@@ -156,6 +157,12 @@ public class CqlToken {
 
 	public boolean isKey() {
 		return key != null;
+	}
+
+	public boolean isJson() {
+		// so in order for this to return true, isKey must return false and the
+		// value of this token must equal "json"
+		return !isKey() && getValue().equalsIgnoreCase(JSON_STR);
 	}
 
 	public DataType.Name getCqlType() {

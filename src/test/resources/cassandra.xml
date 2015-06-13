@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <beans xmlns="http://www.springframework.org/schema/beans"
-	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
-	xmlns:util="http://www.springframework.org/schema/util"
-	xmlns:p="http://www.springframework.org/schema/p" 	
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:util="http://www.springframework.org/schema/util"
+	xmlns:p="http://www.springframework.org/schema/p"
 	xsi:schemaLocation="http://www.springframework.org/schema/beans
            http://www.springframework.org/schema/beans/spring-beans-3.0.xsd 
            http://www.springframework.org/schema/util 
@@ -20,67 +19,81 @@
 		</property>
 	</bean>
 
+	<!-- A Client bean called user and its injected CQL statements -->
 	<bean id="user" class="org.metis.cassandra.Client">
 		<property name="cqls">
 			<list>
-				<value>select * from users</value>
-				<value>select username from username_video_index where username =
-					`text:username`
-				</value>
-				<value>select username, email from users where username =
-					`text:user`
-				</value>
-				<value>insert into users (username, created_date, email, firstname,
-					lastname, password) values (`text:username`,
-					`timestamp:created_date`, `list:text:email`,
-					`text:firstname`,`text:lastname`,`text:password`)
-				</value>
-				<value>delete from users where username=`text:user`</value>
+				<ref bean="select1" />
+				<ref bean="select2" />
+				<ref bean="select3" />
+				<ref bean="insert1" />
 			</list>
 		</property>
 		<property name="keyspace" value="videodb" />
 		<property name="clusterBean" ref="cluster1" />
 	</bean>
 
+	<!-- A list of CQL statements used for supporting the user Client -->
+	<bean id="select1" class="org.metis.cassandra.CqlStmnt">
+		<property name="statement" value="select * from users" />
+		<property name="fetchSize" value="100" />
+	</bean>
+	<bean id="select2" class="org.metis.cassandra.CqlStmnt">
+		<property name="statement"
+			value="select username from username_video_index where username =
+					`text:username`" />
+	</bean>
+	<bean id="select3" class="org.metis.cassandra.CqlStmnt">
+		<property name="statement"
+			value="select username, email from users where username =
+					`text:user`" />		
+	</bean>
+	<bean id="insert1" class="org.metis.cassandra.CqlStmnt">
+		<property name="statement"
+			value="insert into users (username, created_date, email, firstname,
+					lastname, password) values (`text:username`,
+					`timestamp:created_date`, `list:text:email`,
+					`text:firstname`,`text:lastname`,`text:password`)" />		
+	</bean>
 
+
+	<!-- A Client bean called videoevent and its injected CQL statements -->
 	<bean id="videoevent" class="org.metis.cassandra.Client">
 		<property name="cqls">
 			<list>
-				<value>select * from video_event</value>
-				<value> select * from video_event where videoid =
-					`uuid:videoid` and
-					username = `text:username`
-				</value>
-				<value>insert into video_event (videoid, username,
-					event_timestamp,
-					event, video_timestamp) values
-					(`uuid:videoid`, `text:username`,
-					`timeuuid:event_timestamp`,
-					`text:event`, `bigint:video_timestamp`)
-				</value>
-				<value>delete from video_event where videoid =
-					`uuid:videoid` and
-					username = `text:username`
-				</value>
-				<value> select * from videos where videoid = `uuid:videoid`	</value>
-				<!-- in this test we're inserting a set and map -->
-				<value>insert into videos (videoid, description,
-					location, tags,
-					upload_date, username, videoname) values
-					(`uuid:videoid`,
-					`text:description`, `map:text:location`,
-					`set:text:tags`,
-					`timestamp:upload_date`, `text:username`,
-					`text:videoname`)
-				</value>
-				<value>delete from videos where videoid =
-					`uuid:videoid`
-				</value>
-
+				<ref bean="select4" />
+				<ref bean="select5" />
+				<ref bean="delete1" />
+				<ref bean="insert2" />
 			</list>
 		</property>
 		<property name="keyspace" value="videodb" />
 		<property name="clusterBean" ref="cluster1" />
+	</bean>
+	<!-- A list of CQL statements used for supporting the videoevent Client -->
+	<bean id="select4" class="org.metis.cassandra.CqlStmnt">
+		<property name="statement" value="select * from video_event" />			
+	</bean>
+
+	<bean id="select5" class="org.metis.cassandra.CqlStmnt">
+		<property name="statement"
+			value="select * from video_event where videoid =
+					`uuid:videoid` and	username = `text:user`" />		
+	</bean>
+
+	<bean id="delete1" class="org.metis.cassandra.CqlStmnt">
+		<property name="statement"
+			value="delete from video_event where videoid =
+					`uuid:videoid` and	username = `text:user`" />
+	</bean>
+	<bean id="insert2" class="org.metis.cassandra.CqlStmnt">
+		<property name="statement"
+			value="insert into video_event (videoid, username,
+					event_timestamp,
+					event, video_timestamp) values
+					(`uuid:username`, `text:user`,
+					`timeuuid:event_timestamp`,
+					`text:event`, `bigint:video_timestamp`)" />		
 	</bean>
 
 	<bean id="cluster1" class="org.metis.cassandra.ClusterBean">

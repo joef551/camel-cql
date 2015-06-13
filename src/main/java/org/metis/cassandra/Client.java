@@ -23,9 +23,12 @@ import java.util.Set;
 import org.metis.utils.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanNameAware;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.DisposableBean;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
 import org.apache.camel.Exchange;
 import org.apache.camel.Message;
 import org.apache.camel.Processor;
@@ -40,10 +43,9 @@ import com.datastax.driver.core.exceptions.NoHostAvailableException;
 
 import static org.metis.utils.Constants.*;
 import static org.metis.utils.Utils.dumpStackTrace;
-import static org.metis.cassandra.CqlStmnt.getCQLStmnt;
 
 public class Client implements InitializingBean, DisposableBean, BeanNameAware,
-		Processor {
+		ApplicationContextAware, Processor {
 
 	private static final Logger LOG = LoggerFactory.getLogger(Client.class);
 	private boolean isRunning;
@@ -52,23 +54,19 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 	private String keyspace;
 	private Session session;
 	private String beanName;
+	private boolean autoInject = true;
+	private ApplicationContext applicationContext;
 
 	// the injected CQL statements
-	private List<String> cqls4Select = new ArrayList<String>();
-	private List<String> cqls4Update = new ArrayList<String>();
-	private List<String> cqls4Insert = new ArrayList<String>();
-	private List<String> cqls4Delete = new ArrayList<String>();
-
-	// the CQL statement objects derived from injected values
-	private List<CqlStmnt> cqlStmnts4Select;
-	private List<CqlStmnt> cqlStmnts4Update;
-	private List<CqlStmnt> cqlStmnts4Insert;
-	private List<CqlStmnt> cqlStmnts4Delete;
+	private List<CqlStmnt> cqlStmnts4Select = new ArrayList<CqlStmnt>();
+	private List<CqlStmnt> cqlStmnts4Update = new ArrayList<CqlStmnt>();
+	private List<CqlStmnt> cqlStmnts4Insert = new ArrayList<CqlStmnt>();
+	private List<CqlStmnt> cqlStmnts4Delete = new ArrayList<CqlStmnt>();
 
 	// the supported CQL statements. this component only supports DML
 	// statements.
 	enum Method {
-		SELECT, UPDATE, INSERT, DELETE;
+		SELECT, UPDATE, INSERT, DELETE, NOOP;
 
 		public boolean isSelect() {
 			return this == SELECT;
@@ -85,11 +83,14 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 		public boolean isInsert() {
 			return this == INSERT;
 		}
+
+		public boolean isNoop() {
+			return this == NOOP;
+		}
 	}
 
 	// the default method used for this bean
-	private Method dfltMethod;
-	private String defaultMethod;
+	private Method defaultMethod;
 
 	public Client() {
 	}
@@ -141,37 +142,54 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 					+ getSession().getCluster().getMetadata().getPartitioner());
 		} catch (Exception exc) {
 			LOG.warn(getBeanName()
-					+ ":unable to connect Cassandra during bean initialization, msg = "
-					+ exc.getMessage());
+					+ ":unable to connect to Cassandra cluster during bean "
+					+ "initialization, msg = " + exc.getMessage());
 			// throw exc;
 		}
 
 		LOG.info(getBeanName() + ": clusterBean name = "
 				+ getClusterBean().getBeanName());
 
-		// do some validation
-		if (getCqls4Select().isEmpty() && getCqls4Update().isEmpty()
-				&& getCqls4Delete().isEmpty() && getCqls4Insert().isEmpty()) {
-			throw new Exception(getBeanName()
-					+ ": Client has not been assigned any CQL statements");
+		// if no CQLs have been injected into this bean, then auto-inject any
+		// CQLs found in context
+		if (getApplicationContext() != null) {
+			if (getCqlStmnts4Select().isEmpty()
+					&& getCqlStmnts4Delete().isEmpty()
+					&& getCqlStmnts4Update().isEmpty()
+					&& getCqlStmnts4Insert().isEmpty()) {
+				LOG.debug(getBeanName()
+						+ ":CQLs not injected, looking for them in context");
+				try {
+					Map<String, CqlStmnt> cqlBeans = getApplicationContext()
+							.getBeansOfType(CqlStmnt.class);
+					if (cqlBeans != null && cqlBeans.size() > 0) {
+						setCqls(new ArrayList<CqlStmnt>(cqlBeans.values()));
+					} else {
+						LOG.error(getBeanName()
+								+ ":ERROR: No CQLs found in context");
+					}
+				} catch (BeansException e) {
+					LOG.error(getBeanName()
+							+ ":ERROR: could not find any CQLStmnt beans when processing auto-injected beans: "
+							+ e.getMessage());
+					throw e;
+				} catch (Exception e) {
+					LOG.error(getBeanName()
+							+ ":ERROR: this exception occurred when processing auto-injected CQLStmnt beans: "
+							+ e.getMessage());
+					// end of the line
+					throw e;
+				}
+			}
 		}
 
-		// create and validate the injected CQL statements
+		// log the CQLs and determine the default method
 		int defaultMethodFlag = 0;
-		if (!getCqls4Select().isEmpty()) {
-			setCqlStmnts4Select(new ArrayList<CqlStmnt>());
-			for (String cql : getCqls4Select()) {
-				CqlStmnt stmt = getCQLStmnt(cql);
-				if (stmt.isEqual(getCqlStmnts4Select())) {
-					throw new Exception(
-							"Injected CQL statements for SELECT are not distinct");
-				}
-				getCqlStmnts4Select().add(stmt);
-			}
+		if (!getCqlStmnts4Select().isEmpty()) {
 			if (LOG.isTraceEnabled()) {
 				for (CqlStmnt cqlstmnt : getCqlStmnts4Select()) {
 					LOG.debug(getBeanName() + ": CQL for SELECT = "
-							+ cqlstmnt.getOriginalStr());
+							+ cqlstmnt.getStatement());
 					LOG.debug(getBeanName()
 							+ ": Parameterized CQL for SELECT = "
 							+ cqlstmnt.getPreparedStr());
@@ -180,20 +198,11 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 			defaultMethodFlag |= 1;
 		}
 
-		if (!getCqls4Insert().isEmpty()) {
-			setCqlStmnts4Insert(new ArrayList<CqlStmnt>());
-			for (String cql : getCqls4Insert()) {
-				CqlStmnt stmt = getCQLStmnt(cql);
-				if (stmt.isEqual(getCqlStmnts4Insert())) {
-					throw new Exception(
-							"Injected CQL statements for INSERT are not distinct");
-				}
-				getCqlStmnts4Insert().add(stmt);
-			}
+		if (!getCqlStmnts4Insert().isEmpty()) {
 			if (LOG.isTraceEnabled()) {
 				for (CqlStmnt cqlstmnt : getCqlStmnts4Insert()) {
 					LOG.debug(getBeanName() + ": CQL for INSERT = "
-							+ cqlstmnt.getOriginalStr());
+							+ cqlstmnt.getStatement());
 					LOG.debug(getBeanName()
 							+ ": Parameterized CQL for INSERT = "
 							+ cqlstmnt.getPreparedStr());
@@ -203,20 +212,11 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 			defaultMethodFlag |= 2;
 		}
 
-		if (!getCqls4Update().isEmpty()) {
-			setCqlStmnts4Update(new ArrayList<CqlStmnt>());
-			for (String cql : getCqls4Update()) {
-				CqlStmnt stmt = getCQLStmnt(cql);
-				if (stmt.isEqual(getCqlStmnts4Update())) {
-					throw new Exception(
-							"Injected CQL statements for UPDATE are not distinct");
-				}
-				getCqlStmnts4Update().add(stmt);
-			}
+		if (!getCqlStmnts4Update().isEmpty()) {
 			if (LOG.isDebugEnabled()) {
 				for (CqlStmnt cqlstmnt : getCqlStmnts4Update()) {
 					LOG.debug(getBeanName() + ": CQL for UPDATE = "
-							+ cqlstmnt.getOriginalStr());
+							+ cqlstmnt.getStatement());
 					LOG.debug(getBeanName()
 							+ ": Parameterized CQL for UPDATE = "
 							+ cqlstmnt.getPreparedStr());
@@ -226,20 +226,11 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 			defaultMethodFlag |= 4;
 		}
 
-		if (!getCqls4Delete().isEmpty()) {
-			setCqlStmnts4Delete(new ArrayList<CqlStmnt>());
-			for (String cql : getCqls4Delete()) {
-				CqlStmnt stmt = getCQLStmnt(cql);
-				if (stmt.isEqual(getCqlStmnts4Delete())) {
-					throw new Exception(
-							"Injected CQL statements for DELETE are not distinct");
-				}
-				getCqlStmnts4Delete().add(stmt);
-			}
+		if (!getCqlStmnts4Delete().isEmpty()) {
 			if (LOG.isDebugEnabled()) {
 				for (CqlStmnt cqlstmnt : getCqlStmnts4Delete()) {
 					LOG.debug(getBeanName() + ": CQL for DELETE = "
-							+ cqlstmnt.getOriginalStr());
+							+ cqlstmnt.getStatement());
 					LOG.debug(getBeanName()
 							+ ": Parameterized CQL for DELETE = "
 							+ cqlstmnt.getPreparedStr());
@@ -249,42 +240,35 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 			defaultMethodFlag |= 8;
 		}
 
-		// determine the default method used for this client bean
-		if (getDefaultMethod() != null) {
-			// a default method string was injected, so grab it from the
-			// injected value
-			try {
-				Method method = Method.valueOf(getDefaultMethod());
-				setDfltMethod(method);
-			} catch (IllegalArgumentException e) {
-				throw new Exception(
-						getBeanName()
-								+ ":execute: This default method string is not allowed ["
-								+ getDefaultMethod() + "]");
-			}
-		} else {
+		// has this client got any CQL statements? If not and autoInject is
+		// true, then throw an exception
+		if (defaultMethodFlag == 0 && isAutoInject()) {
+			throw new Exception(getBeanName()
+					+ ": Client has not been assigned any CQL statements");
+		}
+
+		if (getDefaultMethod() == null) {
 			// a default method was not injected, so determine the default
 			// method based on the injected CQLs
 			switch (defaultMethodFlag) {
 			case 1:
-				setDfltMethod(Method.SELECT);
+				setDefaultMethod(Method.SELECT);
 				break;
 			case 2:
-				setDfltMethod(Method.INSERT);
+				setDefaultMethod(Method.INSERT);
 				break;
 			case 4:
-				setDfltMethod(Method.UPDATE);
+				setDefaultMethod(Method.UPDATE);
 				break;
 			case 8:
-				setDfltMethod(Method.DELETE);
+				setDefaultMethod(Method.DELETE);
 				break;
 			default:
-				setDfltMethod(Method.SELECT);
+				setDefaultMethod(Method.SELECT);
 			}
-			setDefaultMethod(getDfltMethod().toString());
 		}
 
-		LOG.debug(getBeanName() + ": Default method = " + getDfltMethod());
+		LOG.debug(getBeanName() + ": Default method = " + getDefaultMethod());
 
 		setRunning(true);
 	}
@@ -419,22 +403,25 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 			Message inMsg) throws Exception {
 
 		// see if request method is in the message
+		Method method = null;
 		String inMethod = (String) inMsg.getHeader(CASSANDRA_METHOD);
 		if (inMethod == null || inMethod.isEmpty()) {
 			LOG.debug(getBeanName()
 					+ ":execute - method was not provided, defaulting to {}",
-					getDfltMethod().toString());
-			inMethod = getDfltMethod().toString();
-		}
+					getDefaultMethod().toString());
+			method = getDefaultMethod();
+		} else {
+			inMethod = inMethod.trim();
 
-		Method method = null;
-		try {
-			method = Method.valueOf(inMethod.toUpperCase());
-			LOG.debug(getBeanName() + ":execute - processing this method: "
-					+ method.toString());
-		} catch (IllegalArgumentException e) {
-			throw new Exception(getBeanName()
-					+ ":execute: This method is not allowed [" + method + "]");
+			try {
+				method = Method.valueOf(inMethod.toUpperCase());
+				LOG.debug(getBeanName()
+						+ ":execute - using this passed in method {}", inMethod);
+			} catch (IllegalArgumentException e) {
+				throw new Exception(getBeanName()
+						+ ":execute: This method is not allowed [" + method
+						+ "]");
+			}
 		}
 
 		// based on the given method, attempt to find a set of candidate CQL
@@ -469,6 +456,13 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 					+ ":execute: this key set could not "
 					+ "be mapped to a CQL statement: ["
 					+ myListMap.get(0).keySet().toString() + "]");
+		}
+
+		// only one map is allowed for SELECT statements
+		if (cqlStmnt.isSelect() && myListMap.size() > 1) {
+			throw new Exception(getBeanName()
+					+ ":execute: received more than one input "
+					+ "Map for a SELECT statement, this is not allowed");
 		}
 
 		// iterate through the given Maps (if any) and execute their
@@ -555,110 +549,6 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 			throw new IllegalArgumentException(
 					"this request method in not recongized:" + method);
 		}
-	}
-
-	/**
-	 * Used for validating CQL statement for select
-	 * 
-	 * @param cql
-	 * @return
-	 * @throws IllegalArgumentException
-	 */
-	private String valCql4Select(String cql) throws IllegalArgumentException {
-		if (cql != null && cql.length() > 0) {
-			String[] tokens = cql.split(DELIM);
-			if (tokens.length < 2) {
-				throw new IllegalArgumentException(
-						"valSql4Insert: invalid CQL statement - insufficent "
-								+ "number of tokens");
-			} else if (!tokens[0].equalsIgnoreCase(SELECT_STR)) {
-				throw new IllegalArgumentException(
-						"valCql4Select: invalid CQL statement - does not start with 'select'");
-			}
-		} else {
-			throw new IllegalArgumentException(
-					"valCql4Select: invalid CQL statement - empty or null statement");
-		}
-		return cql.trim();
-	}
-
-	/**
-	 * Used for validating CQL statement for insert
-	 * 
-	 * @param cql
-	 * @return
-	 * @throws IllegalArgumentException
-	 */
-	private String valCql4Insert(String cql) throws IllegalArgumentException {
-		if (cql != null && cql.length() > 0) {
-			String[] tokens = cql.split(DELIM);
-			if (tokens.length < 2) {
-				throw new IllegalArgumentException(
-						"valSql4Insert: invalid CQL statement - insufficent "
-								+ "number of tokens");
-			} else if (!tokens[0].equalsIgnoreCase(INSERT_STR)) {
-				throw new IllegalArgumentException(
-						"valCql4Insert: invalid CQL statement - does not start with 'insert'");
-			}
-		} else {
-			throw new IllegalArgumentException(
-					"valCql4Insert: invalid CQL statement - empty or null statement");
-		}
-		return cql.trim();
-	}
-
-	/**
-	 * Used for validating CQL statement for update
-	 * 
-	 * @param cql
-	 * @return
-	 * @throws IllegalArgumentException
-	 */
-	private String valCql4Update(String cql) throws IllegalArgumentException {
-		if (cql != null && cql.length() > 0) {
-			String[] tokens = cql.split(DELIM);
-			if (tokens.length < 2) {
-				throw new IllegalArgumentException(
-						"valCql4Update: invalid CQL statement - insufficent "
-								+ "number of tokens");
-			} else if (!tokens[0].equalsIgnoreCase(UPDATE_STR)) {
-				throw new IllegalArgumentException(
-						"valCql4Update: invalid CQL statement - must start with "
-								+ "'update'");
-			}
-		} else {
-			throw new IllegalArgumentException(
-					"valCql4Update: invalid CQL statement - empty or null "
-							+ "statement");
-		}
-		return cql.trim();
-	}
-
-	/**
-	 * Used for validating CQL statement for DELETE
-	 * 
-	 * @param cql
-	 * @return
-	 * @throws IllegalArgumentException
-	 */
-	private String valCql4Delete(String cql) throws IllegalArgumentException {
-		if (cql != null && cql.length() > 0) {
-			String[] tokens = cql.split(DELIM);
-			if (tokens.length < 2) {
-				throw new IllegalArgumentException(
-						"valSql4Delete: invalid CQL statement - insufficent "
-								+ "number of tokens");
-			} else if (!tokens[0].equalsIgnoreCase(DELETE_STR)) {
-				throw new IllegalArgumentException(
-						"valSql4Delete: invalid CQL statement - must start "
-								+ "with 'delete'");
-			}
-		} else {
-			throw new IllegalArgumentException(
-					"valSql4Delete: invalid CQL statement - empty or null "
-							+ "statement");
-		}
-		return cql.trim();
 	}
 
 	/**
@@ -767,85 +657,6 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 	}
 
 	/**
-	 * @return the sqls4Select
-	 */
-	public List<String> getCqls4Select() {
-		return cqls4Select;
-	}
-
-	public void setCqls4Select(List<String> cqls)
-			throws IllegalArgumentException {
-		if (cqls == null || cqls.isEmpty()) {
-			throw new IllegalArgumentException(
-					"setCqls4Select: invalid list of CQL statements - empty or "
-							+ "null statement");
-		}
-		for (String cql : cqls) {
-			getCqls4Select().add(valCql4Select(cql));
-		}
-	}
-
-	/**
-	 * @return the cqls4Insert
-	 */
-	public List<String> getCqls4Insert() {
-		return cqls4Insert;
-	}
-
-	/**
-	 * @param cqls4Insert
-	 *            the cqls4Insert to set
-	 */
-	public void setCqls4Insert(List<String> cqls) {
-		if (cqls == null || cqls.isEmpty()) {
-			throw new IllegalArgumentException(
-					"setCqls4Insert: invalid list of CQL statements - empty or "
-							+ "null statement");
-		}
-		for (String cql : cqls) {
-			getCqls4Insert().add(valCql4Insert(cql));
-		}
-	}
-
-	/**
-	 * @return the sqls4Update
-	 */
-	public List<String> getCqls4Update() {
-		return cqls4Update;
-	}
-
-	public void setCqls4Update(List<String> cqls)
-			throws IllegalArgumentException {
-		if (cqls == null || cqls.isEmpty()) {
-			throw new IllegalArgumentException(
-					"setCqls4Select: invalid list of CQL statements - empty or "
-							+ "null statement");
-		}
-		for (String cql : cqls) {
-			getCqls4Update().add(valCql4Update(cql));
-		}
-	}
-
-	/**
-	 * @return the sqls4Delete
-	 */
-	public List<String> getCqls4Delete() {
-		return cqls4Delete;
-	}
-
-	public void setCqls4Delete(List<String> cqls)
-			throws IllegalArgumentException {
-		if (cqls == null || cqls.isEmpty()) {
-			throw new IllegalArgumentException(
-					"setCqls4Select: invalid list of CQL statements - empty or "
-							+ "null statement");
-		}
-		for (String cql : cqls) {
-			getCqls4Delete().add(valCql4Delete(cql));
-		}
-	}
-
-	/**
 	 * @param cqlStmnts4Select
 	 *            the cqlStmnts4Select to set
 	 */
@@ -906,59 +717,95 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 	 * @param cqls
 	 *            the cqls to set
 	 */
-	public void setCqls(List<String> cqls) throws IllegalArgumentException {
+	public void setCqls(List<CqlStmnt> cqls) throws Exception {
 		if (cqls == null || cqls.isEmpty()) {
 			return;
 		}
-		for (String cql : cqls) {
-			cql = cql.trim();
-			String[] tokens = cql.split(DELIM);
-			if (tokens != null && tokens.length > 0) {
-				if (UPDATE_STR.equalsIgnoreCase(tokens[0])) {
-					getCqls4Update().add(valCql4Update(cql));
-				} else if (DELETE_STR.equalsIgnoreCase(tokens[0])) {
-					getCqls4Delete().add(valCql4Delete(cql));
-				} else if (SELECT_STR.equalsIgnoreCase(tokens[0])) {
-					getCqls4Select().add(valCql4Select(cql));
-				} else if (INSERT_STR.equalsIgnoreCase(tokens[0])) {
-					getCqls4Insert().add(valCql4Insert(cql));
-				} else {
-					throw new IllegalArgumentException(
-							"invalid CQL statement: " + cql);
+		// make sure all the CQL statements are unique within a given set
+		for (CqlStmnt cql : cqls) {
+			switch (cql.getCqlStmntType()) {
+			case SELECT:
+				if (cql.isEqual(getCqlStmnts4Select())) {
+					throw new Exception(
+							"Injected CQL statements for SELECT are not distinct");
 				}
-
+				cqlStmnts4Select.add(cql);
+				break;
+			case DELETE:
+				if (cql.isEqual(getCqlStmnts4Delete())) {
+					throw new Exception(
+							"Injected CQL statements for DELETE are not distinct");
+				}
+				cqlStmnts4Delete.add(cql);
+				break;
+			case INSERT:
+				if (cql.isEqual(getCqlStmnts4Insert())) {
+					throw new Exception(
+							"Injected CQL statements for INSERT are not distinct");
+				}
+				cqlStmnts4Insert.add(cql);
+				break;
+			case UPDATE:
+				if (cql.isEqual(getCqlStmnts4Update())) {
+					throw new Exception(
+							"Injected CQL statements for UPDATE are not distinct");
+				}
+				cqlStmnts4Update.add(cql);
+				break;
+			default:
+				throw new Exception("Unknown CQL = [" + cql.getStatement()
+						+ "]");
 			}
 		}
-	}
-
-	/**
-	 * @return the dfltMethod
-	 */
-	public Method getDfltMethod() {
-		return dfltMethod;
 	}
 
 	/**
 	 * @param dfltMethod
 	 *            the dfltMethod to set
 	 */
-	public void setDfltMethod(Method dfltMethod) {
-		this.dfltMethod = dfltMethod;
+	public void setDefaultMethod(Method defaultMethod) {
+		this.defaultMethod = defaultMethod;
 	}
 
 	/**
-	 * @return the defaultMethod
+	 * @return the defaultMethodStr
 	 */
-	public String getDefaultMethod() {
+	public Method getDefaultMethod() {
 		return defaultMethod;
 	}
 
 	/**
-	 * @param defaultMethod
-	 *            the defaultMethod to set
+	 * @return the applicationContext
 	 */
-	public void setDefaultMethod(String defaultMethod) {
-		this.defaultMethod = defaultMethod;
+	public ApplicationContext getApplicationContext() {
+		return applicationContext;
+	}
+
+	/**
+	 * @param applicationContext
+	 *            the applicationContext to set
+	 */
+	public void setApplicationContext(ApplicationContext applicationContext) {
+		this.applicationContext = applicationContext;
+	}
+
+	/**
+	 * @return the autoInject
+	 */
+	public boolean isAutoInject() {
+		return autoInject;
+	}
+
+	/**
+	 * @param autoInject
+	 *            the autoInject to set
+	 */
+	public void setAutoInject(boolean autoInject) {
+		this.autoInject = autoInject;
+	}
+
+	public boolean isNoop() {
+		return getDefaultMethod().isNoop();
 	}
 
 }

@@ -14,6 +14,7 @@
 package org.metis.cassandra;
 
 import java.io.File;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -68,7 +69,7 @@ public class CqlComponent extends DefaultComponent {
 
 	private ComponentProfile componentProfile = null;
 
-	private Map<String, Client> clients;
+	private final Map<String, Client> clients = new HashMap<String, Client>();
 
 	static {
 		// check to see if the default context name has been
@@ -442,6 +443,12 @@ public class CqlComponent extends DefaultComponent {
 		ConfigurableApplicationContext cassandraContext = null;
 		Registry registry = null;
 
+		// see if there is a Camel registry to work with
+		if (getCamelContext() != null) {
+			registry = getCamelContext().getRegistry();
+		}
+
+		// try and load the external SPring XML file
 		try {
 			cassandraContext = new ClassPathXmlApplicationContext(
 					getContextFileName());
@@ -460,20 +467,21 @@ public class CqlComponent extends DefaultComponent {
 				cassandraContext = null;
 			}
 			LOG.warn("initComponent: unable to find Client beans in "
-					+ "Spring XML file or file not specified or not found ... "
-					+ "looking in Camel registry");
+					+ "external Spring XML file or file not specified "
+					+ "or not found ... looking in Camel registry");
+		}
 
-			// external cassandra.xml most probably was not found
-			// look for client beans in this route's registry
-			registry = getCamelContext().getRegistry();
+		// look for client beans in this component's registry (if any)
+		if (registry != null) {
 			setClients(registry.findByTypeWithName(Client.class));
-			if (getClients() == null || getClients().isEmpty()) {
-				throw new Exception(
-						"there are no beans of type Client in neither "
-								+ "Spring XML nor Camel registry");
-			} else {
-				LOG.debug("initComponent: clients loaded from registry");
-			}
+		}
+
+		// see if any clients have been found
+		if (getClients() == null || getClients().isEmpty()) {
+			throw new Exception("there are Client beans in neither "
+					+ "the Spring XML nor Camel XML (registry)");
+		} else {
+			LOG.debug("initComponent: clients loaded from registry");
 		}
 
 		// if using an external cfg file, create a profile for this component
@@ -566,13 +574,13 @@ public class CqlComponent extends DefaultComponent {
 
 	/**
 	 * @param clients
-	 *            the clients to set
+	 *            the clients to set or add
 	 */
 	public void setClients(Map<String, Client> clients) {
 		if (clients == null || clients.isEmpty()) {
 			return;
 		}
-		this.clients = clients;
+		this.clients.putAll(clients);
 	}
 
 	// ---------- End Initialization Methods -----------------------

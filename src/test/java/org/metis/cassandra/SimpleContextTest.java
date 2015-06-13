@@ -52,8 +52,7 @@ public class SimpleContextTest {
 		if (cc == null) {
 			fail("ERROR: unable to load context");
 		}
-
-		CqlComponent cc = CqlComponent.cqlComponent("cassandra.xml");
+		
 		try {
 			cc.start();
 			Thread.sleep(500);
