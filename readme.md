@@ -1,19 +1,24 @@
-Introduction
-============
+<h1 id="Introduction">Introduction</h1>
+
 [Apache Camel](http://camel.apache.org)<font size="1"><sup>TM</sup></font> is a powerful and feature-rich open source integration framework whose goal is, in part, to facilitate the implementation of enterprise integration patterns. Camel supports or implements  most of the integration patterns that are described in the book by Bobby Woolf and Gregor Hohpe entitled, ["Enterprise Integration Patterns"](http://www.enterpriseintegrationpatterns.com "EIP" ). In the Camel vernacular, patterns are also referred to as routes. Camel is the integration framework for the open source [ServiceMix](http://servicemix.apache.org) enterprise service bus (ESB); however, Camel can also be used as a standalone integration framework. Camel includes a number of different [components](http://camel.apache.org/component.html), where each component can be viewed as a connector to an API, framework, protocol, and/or data store. For example, there are components  for smtp, ftp, tcp, file, sql, jdbc, jetty, etc. There must now be over 50 different components and the number just keeps growing. Camel routes are message patterns that are used, in part, for integrating these components. For example, you may have a route that reads messages from a JMS queue and persists the messages to different database tables. The different routing possibilities are endless. The "[Camel In Action](http://www.manning.com/ibsen/)" book is a must-read for anyone getting started with Camel. 
 
 [Apache Cassandra](http://cassandra.apache.org)<font size="1"><sup>TM</sup></font> is a massively scalable open source NoSQL database management system (DBMS) [1]. Cassandra is highly fault-tolerant and based on the Columnar or ColumnFamily data model; think of it as a highly distributed hash table. Cassandra includes a SQL-like programming language called, "[Cassandra Query Language](http://www.datastax.com/documentation/cql/3.1/cql/cql_intro_c.html)" (CQL), which is the default and primary interface into the Cassandra DBMS. Using CQL is similar to using SQL in that the concept of a table having rows and columns is almost the same in CQL and SQL. The main difference is that Cassandra does not support joins or subqueries, except for batch analysis through Hive. Instead, Cassandra emphasizes denormalization through CQL features like collections and clustering specified at the schema level [1]. CQL is the recommended way to interact with Cassandra. The simplicity of reading and using CQL is an advantage over older Cassandra APIs.The goal of this project is to provide a highly configurable and flexible Camel component for CQL. The CQL component allows one to create Camel routes that integrate with the Cassandra DBMS. The initial release of this component supports a Camel producer (e.g., `to()`), but not consumer. The producer provides the basic CRUD (create, read, update, delete) functionality and implements the InOut message exchange pattern (MEP). 
-URI Format====
+ 
+<h1 id="License">License</h1>
+
+This project is provided under the [Apache License v2.0](http://www.apache.org/licenses/LICENSE-2.0). 
+
+<h1 id="URI Format">URI Format</h1>
 ```
 cql:clientName[?options]```   
 Where "clientName" uniquely identifies a Cassandra client bean.  
 
 
-Configuration
-====
+<h1 id="Configuration">Configuration</h1>
 
-[CQL Component](id:component) (org.metis.cassandra.CQLComponent)
-----
+
+<h2 id="CQLComponent">CQL Component</h2>
+
 
 A Cassandra CQL component is configured through either one of the following:
 
@@ -31,14 +36,17 @@ A Cassandra CQL component is configured through either one of the following:
   </route>
 </camelContext>
 ``` 
-Note that if you take configuration approach #1 above, the corresponding CQL component will still look for an external "cassandra.xml" file and if one is found, the CQL component will auto-inject any [Client](client) beans found in that external file, as well as those [Client](client) beans found in the hosting Camel XML file (a.k.a., Camel registry). The client bean is described in the following section. 
+Note that if you take configuration approach #1 above, the corresponding CQL component will still look for an external "cassandra.xml" file and if one is found, the CQL component will auto-inject any [Client](#client) beans found in that external file, as well as those [Client](#client) beans found in the hosting Camel XML file (a.k.a., Camel registry). The client bean is described in the following section. 
 
 Via either of the two configuration approaches described above, you define and configure the beans described in the following subsections. As you read through the following subsections, please keep in mind the use of [Camel property placeholders](http://camel.apache.org/using-propertyplaceholder.html), which provide for dynamic configurations.  
 
 For example configurations, see the "camel1.xml" and "cassandra.xml" files in the project's .../test/resources directory. 
 
-[Client](id:client) (org.metis.cassandra.Client)
-----
+
+
+<h2 id="client">Client</h2>
+
+
 The client bean is a thread-safe component that is used by the CQL component for accessing a Cassandra cluster, a keyspace within the cluster, and any tables within the keyspace. The CQL component will automatically inject itself with all the client beans that it locates within ints application context. There is no need to explicitly wire the CQL component to the client beans. The CQL endpoint's URI is used to identify the target client bean. For example, a URI of `cql:user` specifies the client bean with an id of "user", which may logically be used for accessing the "user" table in a Cassandra keyspace. Also see [Client Mapper](#clientmapper) for using ant-style pattern matching to identify a client bean. 
 
 Each client bean that you define must be assigned one or more [CQL statements](#cqlstatement), which can be any combination of SELECT, UPDATE, DELETE, and INSERT query method. The incoming request message (i.e., Camel in-message) specifies a method, as well as input parameters (key:value pairs). The combination of specified method and input parameters is used to identify which of the client's CQL statements are to be used for the corresponding request message. The method is specified in the Camel Exchange's input message via a header called, "**metis.cassandra.method**". If that header is not present, the client will fall back on a default method. The default method can be either injected into the client or you can have the client choose a default method based on its injected CQL statements. You can inject the default method via the 'defaultMethod' property. For example:
@@ -148,10 +156,11 @@ The **keyspace** property is used to specify the name of the keyspace, within a 
 The **clusterBean** property references a [ClusterBean](#clusterbean) within the Spring XML file that is used to connect to a Cassandra cluster (see ClusterBean section below).
 
 
-[CQL Statement](id:cqlstatement) (org.metis.cassandra.CQLStmnt)
-----
 
-These are the properties for the CQLStatement bean, which gets insjected into a Client bean. All of these properties correlate to the proeprties found in the [Cassandra Statement](http://docs.datastax.com/en/drivers/java/2.1/com/datastax/driver/core/Statement.html) class.
+<h2 id="cqlstatement">CQL Statement</h2>
+
+
+These are the properties for the CQLStatement bean, which gets insjected into a Client bean. All of these properties correlate to those found in the [Cassandra Statement](http://docs.datastax.com/en/drivers/java/2.1/com/datastax/driver/core/Statement.html) class.
 
 The **fetchSize**, which is used exclsuively by the SELECT statement, controls how many rows will be retrieved as part of a result set (the goal being to avoid loading too much results in memory for queries yielding large results). Please note that while a value as low as 1 can be used, it is **highly** discouraged to use such a low value in practice, as it will yield very poor performance. If in doubt,  using the default is probably a good idea.
 
@@ -171,8 +180,9 @@ The **pagingState** boolean property sets whether to use the paging state to fet
 When set, the **tracing** boolean property enables tracing for this statement. 
 
 
-[Client Mapper](id:clientmapper) (org.metis.cassandra.ClientMapper)
-----
+<h2 id="clientmapper">Client Mapper</h2>
+
+
 The optional client mapper is used for mapping URIs to Cassandra client beans. The mapper uses [ant-style pattern matching](https://ant.apache.org/manual/dirtasks.html). If a mapper does not exist, then the URIs will have to directly map to a client. For example, "cql:user" will directly map to the client called "user". If the mapper below is used, then "cql:videouser" will be mapped to the "videoevent" client. 
 
 ```xml
@@ -193,9 +203,9 @@ So given the above mappings, all of the following URIs will get mapped to the cl
 You can only have one client mapper per Spring XML application context.
 
 
+<h2 id="clusterbean">Cluster Bean</h2>
 
-[Cluster Bean](id:clusterbean) (org.metis.cassandra.ClusterBean)
-----
+
 A cluster bean, in combination with its referenced beans, is used for configuring an instance of a [Cassandra Java driver](http://docs.datastax.com/en/developer/java-driver/2.1/java-driver/whatsNew2.html), which is used for accessing a Cassandra cluster. Each client bean in the Spring context must be wired to a cluster bean. You can define any number of cluster beans; each used for accessing a different Cassandra cluster. 
 
 The following is an example definition of a cluster bean. Please note that not all of the cluster bean's properties are depicted in the example. Also, please refer to the driver's [API docs](http://docs.datastax.com/en/drivers/java/2.1/) for more detailed information on the driver's policies and options.  
@@ -330,12 +340,14 @@ The **queryOptions** property is used for specifying options for the [QueryOptio
 
 
 
-So What or Who Is Metis?
-====
+<h1 id="WhoMetis">So Who or What Was Metis</h1>
+
+
 *Metis was the Titaness of the forth day and the planet Mercury. She presided over all wisdom and knowledge. She was seduced by Zeus and became pregnant with Athena. Zeus became concerned over prophecies that Metis’ children would be very powerful and that her second child (a son) would overthrow Zeus. To avoid this from ever hapenning, Zeus turned Metis into a fly and swallowed her. It is said that Metis is the source for Zeus’ wisdom and that she advises Zeus from his belly.[3]*
 
-References
-====
+
+<h1 id="References">References</h1>
+
 [1] [*DataStax, Apache Casandra 2.0 Documentation*](http://www.datastax.com/documentation/articles/cassandra/cassandrathenandnow.html)  
 [2] [*DataStax, Apache Casandra Java Driver 2.0 API Reference*](http://www.datastax.com/drivers/java/2.0/)  
 [3] [*Greek Mythology*](http://www.greekmythology.com/Titans/Metis/metis.html)
