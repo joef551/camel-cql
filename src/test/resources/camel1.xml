@@ -24,6 +24,7 @@
 		</property>
 	</bean>
 
+	<!-- This SQL component will get initialized with the beans in this file -->
 	<bean id="cql1" class="org.metis.cassandra.CqlComponent">
 		<!-- Giving the CqlComponent a bogus contextFileName essentially disables 
 			it from including Client beans in the external context file. -->

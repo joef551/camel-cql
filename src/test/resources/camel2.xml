@@ -8,6 +8,7 @@
        http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd
        http://camel.apache.org/schema/spring http://camel.apache.org/schema/spring/camel-spring.xsd">
 
+	<!-- This CQL component will get initialized with the cassandra.xml file -->
 	<camelContext xmlns="http://camel.apache.org/schema/spring">
 		<route id="camel1-route">
 			<from uri="timer://foo?repeatCount=1" />
