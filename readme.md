@@ -85,9 +85,8 @@ The following describe each of the client bean's properties.
 
 <u>cqls</u>
 
-The **cqls** property is used to assign or wire the client bean to one or more [CQL statements](#cqlstatement). In the example above, the client bean has been assigned four CQL statements: three selects and one insert. The default query method for this client is SELECT because the injected list of CQL statements include a combination of different methods and the  "defaultMethod" property has not been specified. 
+The **cqls** property is used to assign or wire the client bean to one or more [CQL statements](#cqlstatement). In the example above, the client bean has been assigned four CQL statements: three selects and one insert. These are the referenced CQL statements:
 
-These are the CQL statements that get injected into the above Client:
 ```xml
 <!-- A list of CQL statements used for supporting the user Client -->
 <bean id="select1" class="org.metis.cassandra.CqlStmnt">
@@ -122,31 +121,6 @@ If a ***cqls*** property is not specified, the client will auto-inject all CQL s
 </bean>
 ``` 
 
-Note that three of the statements have fields delimited by backticks (e.g., \`list:text:email\`). These are *parameterized fields* that comprise 2 or 3 subfields, which are delimited by a ":". A CQL statement's parameterized fields are used for binding input parameters, which arrive with the request message, to the corresponding CQL prepared statement. So any CQL statement with a parameterized field is essentially a CQL prepared statement. The first subfield (from right-to-left) of a parameterized field is required, and it specifies the name of the input parameter that corresponds to the field. In other words, it must match the key of a key:value pair that is passed in via the request message. In the previous example, 'email' is the name of the input parameter. The next subfield is the type of input parameter, and it must match one of the Cassandra [data types](http://www.datastax.com/drivers/java/2.1/com/datastax/driver/core/DataType.Name.html). The last subfield, which is optional, is used to specify a collection (list, map, or set). Here are a couple of examples:
-
-1. **\`list:text:email\`** is a parameterized field that is matched up to an input parameter whose key is 'email' and whose value is a list of ascii text strings. 
-2. **\`text:username\`** is a parameterized field that is matched up to an input parameter whose key is 'username' and whose value is an ascii text string. 
-
-Note from [1] about using collections. <i>"Use collections, such as Set, List or Map, when you want to store or denormalize a small amount of data. Values of items in collections are limited to 64K. Other limitations also apply. Collections work well for storing data such as the phone numbers of a user and labels applied to an email. If the data you need to store has unbounded growth potential, such as all the messages sent by a user or events registered by a sensor, do not use collections. Instead, use a table having a compound primary key and store data in the clustering columns".</i>
-
-All CQL statements for a particular method must be distinct with respect to the parameterized fields. If you have two statements with the same query method and those two methods have the same number of parameterized fields with matching key names, then an exception will be thrown during the Client bean's initialization. For example, these two CQL statements, when assigned to a Client bean, will result in an exception. 
-
-````
-select username from username_video_index where username =`text:username`
-select first, last from user where username =`text:username`
-````
-Even though the two statements access different tables, they share the same number of identical parameterized fields; therefore, one is not distinct from the other wrt the parameterized fields. The following two statements will not result in an exception.
-
-````
-select username from username_video_index where username =`text:username`
-select first, last from user where username =`text:username` and `int:age` = 59
-````
-Even though they share one identical parameterized field, they do not have an equal number of parameterized fields.
-
-When a request message arrives, in the form of a Camel in-message, that specifies a SELECT method, the example client's three assigned and **distinct** SELECT statements become candidates for the request. The input parameters (key:value pairs) in the request message dictate which of the three to use. For example, if the request message contains one Map with one key:value pair of `username:joe`, then the second SELECT CQL statement will be used. If the request message contains only one Map with one key:value pair of `user:joe`, then the third SELECT statement is used. If there is no request message (i.e., the Camel exchange does not include a payload), then the first CQL select statement is used because it has no parameterized fields. An exception is thrown if a match cannot be found. 
-
-<u>**If the in-message comprises a list of maps, then all of the maps in the payload must have the same set of keys! </u>** If there is a list of maps, then it represents a batch UPDATE, INSERT, or DELETE. A list of maps cannot be used for a SELECT.  
-
 <u>keyspace</u>
 
 The **keyspace** property is used to specify the name of the keyspace, within a Cassandra cluster, that the client bean is to use. 
@@ -174,6 +148,60 @@ As previously described, the optional  **defaultMethod** property is used for sp
 So to recap: A CQL component self-injects all client beans that is locates and the client beans can be injected with any number of CQL statements. Recall that you can either explicitly inject a certain set of CQL statements into the client or you can let the client self-inject all the CQL statements that it locates in its respective bean factory.  
  
 This section lists and describes all of the properties for the CQL statement bean. All of these properties correlate to those found in the [Cassandra Statement](http://docs.datastax.com/en/drivers/java/2.1/com/datastax/driver/core/Statement.html) class.
+
+<u>statement</u>
+
+The **statement** property is used to specify the actual CQL statement. Here are the same examples listed in the previous section:
+
+```xml
+<!-- A list of CQL statements used for supporting the user Client -->
+<bean id="select1" class="org.metis.cassandra.CqlStmnt">
+	<property name="statement" value="select * from users" />
+	<property name="fetchSize" value="100" />
+</bean>
+<bean id="select2" class="org.metis.cassandra.CqlStmnt">
+	<property name="statement"
+		value="select username from username_video_index where username =
+				`text:username`" />
+</bean>
+<bean id="select3" class="org.metis.cassandra.CqlStmnt">
+	<property name="statement"
+		value="select username, email from users where username =
+				`text:user`" />
+</bean>
+<bean id="insert1" class="org.metis.cassandra.CqlStmnt">
+	<property name="statement"
+		value="insert into users (username, created_date, email, firstname,
+			lastname, password) values (`text:username`,
+			`timestamp:created_date`, `list:text:email`,
+			`text:firstname`,`text:lastname`,`text:password`)" />
+</bean>
+```
+Note that three of the statements have fields delimited by backticks (e.g., \`list:text:email\`). These are *parameterized fields* that comprise 2 or 3 subfields, which are delimited by a ":". A CQL statement's parameterized fields are used for binding input parameters, which arrive with the request message, to the corresponding CQL prepared statement. So any CQL statement with a parameterized field is essentially a CQL prepared statement. The first subfield (from right-to-left) of a parameterized field is required, and it specifies the name of the input parameter that corresponds to the field. In other words, it must match the key of a key:value pair that is passed in via the request message. In the previous example, 'email' is the name of the input parameter. The next subfield is the type of input parameter, and it must match one of the Cassandra [data types](http://www.datastax.com/drivers/java/2.1/com/datastax/driver/core/DataType.Name.html). The last subfield, which is optional, is used to specify a collection (list, map, or set). Here are a couple of examples:
+
+1. **\`list:text:email\`** is a parameterized field that is matched up to an input parameter whose key is 'email' and whose value is a list of ascii text strings. 
+2. **\`text:username\`** is a parameterized field that is matched up to an input parameter whose key is 'username' and whose value is an ascii text string. 
+
+Note from [1] about using collections. <i>"Use collections, such as Set, List or Map, when you want to store or denormalize a small amount of data. Values of items in collections are limited to 64K. Other limitations also apply. Collections work well for storing data such as the phone numbers of a user and labels applied to an email. If the data you need to store has unbounded growth potential, such as all the messages sent by a user or events registered by a sensor, do not use collections. Instead, use a table having a compound primary key and store data in the clustering columns".</i>
+
+All CQL statements for a particular method must be distinct with respect to the parameterized fields. If you have two statements with the same query method and those two methods have the same number of parameterized fields with matching key names, then an exception will be thrown during the Client bean's initialization. For example, these two CQL statements, when assigned to a Client bean, will result in an exception. 
+
+````
+select username from username_video_index where username =`text:username`
+select first, last from user where username =`text:username`
+````
+Even though the two statements access different tables, they share the same number of identical parameterized fields; therefore, one is not distinct from the other wrt the parameterized fields. The following two statements will not result in an exception.
+
+````
+select username from username_video_index where username =`text:username`
+select first, last from user where username =`text:username` and `int:age` = 59
+````
+Even though they share one identical parameterized field, they do not have an equal number of parameterized fields.
+
+When a request message arrives, in the form of a Camel in-message, that specifies a SELECT method, the three **distinct** SELECT statements (from the above set) become candidates for the request. The input parameters (key:value pairs) in the request message dictate which of the three to use. For example, if the request message contains one Map with one key:value pair of `username:joe`, then the second SELECT CQL statement will be used. If the request message contains only one Map with one key:value pair of `user:joe`, then the third SELECT statement is used. If there is no request message (i.e., the Camel exchange does not include a payload), then the first CQL select statement is used because it has no parameterized fields. An exception is thrown if a match cannot be found. 
+
+<u>**If the in-message comprises a list of maps, then all of the maps in the payload must have the same set of keys! </u>** If there is a list of maps, then it represents a batch UPDATE, INSERT, or DELETE. A list of maps cannot be used for a SELECT.  
+
 
 <u>fetchSize</u>
 
