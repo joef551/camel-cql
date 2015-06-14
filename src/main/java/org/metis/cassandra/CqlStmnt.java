@@ -39,6 +39,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.BeanNameAware;
 import org.springframework.beans.factory.InitializingBean;
 
+import org.metis.cassandra.Client.Method;
+
 import static org.metis.utils.Constants.*;
 
 /**
@@ -78,14 +80,9 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 	// parameterized token.
 	private Map<String, CqlToken> keyTokens = new HashMap<String, CqlToken>();
 
-	// Enumeration used for identifying the type of CQL statement
-	public enum CqlStmntType {
-		SELECT, UPDATE, DELETE, INSERT;
-	}
-
 	// the type of CQL statement that this statement represents; e.g., select,
 	// insert, update, etc.
-	private CqlStmntType cqlStmntType;
+	private Method cqlStmntType;
 
 	// marks this as a "SELECT JSON ..." statement
 	private boolean isJsonSelect;
@@ -106,7 +103,7 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 	 * 
 	 * @return
 	 */
-	public CqlStmntType getCqlStmntType() {
+	public Method getCqlStmntType() {
 		return cqlStmntType;
 	}
 
@@ -115,7 +112,7 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 	 * 
 	 * @param cqlStmntType
 	 */
-	public void setCqlStmntType(CqlStmntType cqlStmntType) {
+	public void setCqlStmntType(Method cqlStmntType) {
 		this.cqlStmntType = cqlStmntType;
 	}
 
@@ -173,19 +170,19 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 	}
 
 	public boolean isSelect() {
-		return getCqlStmntType() == CqlStmntType.SELECT;
+		return getCqlStmntType() == Method.SELECT;
 	}
 
 	public boolean isDelete() {
-		return getCqlStmntType() == CqlStmntType.DELETE;
+		return getCqlStmntType() == Method.DELETE;
 	}
 
 	public boolean isInsert() {
-		return getCqlStmntType() == CqlStmntType.INSERT;
+		return getCqlStmntType() == Method.INSERT;
 	}
 
 	public boolean isUpdate() {
-		return getCqlStmntType() == CqlStmntType.UPDATE;
+		return getCqlStmntType() == Method.UPDATE;
 	}
 
 	/**
@@ -955,17 +952,17 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 		// based on first token, mark the statement's type
 		CqlToken tmpToken = getTokens().get(0);
 		if (tmpToken.getValue().equalsIgnoreCase(SELECT_STR)) {
-			setCqlStmntType(CqlStmntType.SELECT);
+			setCqlStmntType(Method.SELECT);
 			// is this a SELECT JSON ... statement?
 			setJsonSelect(getTokens().get(1).isJson());
 		} else if (tmpToken.getValue().equalsIgnoreCase(DELETE_STR)) {
-			setCqlStmntType(CqlStmntType.DELETE);
+			setCqlStmntType(Method.DELETE);
 
 		} else if (tmpToken.getValue().equalsIgnoreCase(UPDATE_STR)) {
-			setCqlStmntType(CqlStmntType.UPDATE);
+			setCqlStmntType(Method.UPDATE);
 
 		} else if (tmpToken.getValue().equalsIgnoreCase(INSERT_STR)) {
-			setCqlStmntType(CqlStmntType.INSERT);
+			setCqlStmntType(Method.INSERT);
 
 		} else {
 			throw new IllegalArgumentException("unknown CQL statement: "

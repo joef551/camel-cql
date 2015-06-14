@@ -183,7 +183,7 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 			}
 		}
 
-		// log the CQLs and determine the default method
+		// log the CQLs and determine the default method (if any)
 		int defaultMethodFlag = 0;
 		if (!getCqlStmnts4Select().isEmpty()) {
 			if (LOG.isTraceEnabled()) {
@@ -264,11 +264,15 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 				setDefaultMethod(Method.DELETE);
 				break;
 			default:
-				setDefaultMethod(Method.SELECT);
+				LOG.warn(getBeanName()
+						+ ": Couldn't auto-determine default method");
 			}
 		}
 
-		LOG.debug(getBeanName() + ": Default method = " + getDefaultMethod());
+		if (getDefaultMethod() != null) {
+			LOG.debug(getBeanName() + ": Default method = "
+					+ getDefaultMethod());
+		}
 
 		setRunning(true);
 	}
@@ -406,13 +410,18 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 		Method method = null;
 		String inMethod = (String) inMsg.getHeader(CASSANDRA_METHOD);
 		if (inMethod == null || inMethod.isEmpty()) {
-			LOG.debug(getBeanName()
-					+ ":execute - method was not provided, defaulting to {}",
-					getDefaultMethod().toString());
+			LOG.debug(getBeanName() + ":execute - method was not provided");
 			method = getDefaultMethod();
+			if (method == null) {
+				throw new Exception(getBeanName()
+						+ ":execute - method was not provided and there "
+						+ "is no default set for this client");
+			} else {
+				LOG.debug(getBeanName()
+						+ ":execute - using this default method {}", method);
+			}
 		} else {
 			inMethod = inMethod.trim();
-
 			try {
 				method = Method.valueOf(inMethod.toUpperCase());
 				LOG.debug(getBeanName()

@@ -59,7 +59,7 @@ Each client bean that you define must be assigned one or more [CQL statements](#
 </bean> 	
 ```
 
-If a default method is not injected, the client selects one based on its injected CQL statements. If the injected CQL statements include any combination of methods (e.g., SELECT and DELETE), the client will fall back on SELECT. If the injected CQL statements comprise just one type of method, then that method will be the default method. For example, if all the injected CQL statements are of type DELETE, then DELETE will be the default method for the client. However, if there are CQL statements for both SELECT and DELETE, then SELECT will be the chosen default method.  
+If a default method is not injected, the client selects one based on its injected CQL statements. If the injected CQL statements comprise just one type of method, then that method will be the default method. For example, if all the injected CQL statements are of type DELETE, then DELETE will be the default method for the client. However, if there are CQL statements for both SELECT and DELETE, then a default method cannot be determined.   
  
 If the incoming request message does not include input parameters, the client will choose the CQL statement not having any parameterized fields (see below); therefore, you should never have more than one non-parameterized CQL statement per method type.  The input parameters are passed in as either a Map, List of Maps, or JSON object. JSON objects are in the form of a String or InputStream object, which are transformed to either a Map or List of Maps. Please note that all incoming Camel exchanges must have the **InOut** message exchange pattern (MEP). The response message (Camel out message) is sent back as a List of Maps. 
 
@@ -171,8 +171,9 @@ As previously described, the optional  **defaultMethod** property is used for sp
 
 <h2 id="cqlstatement">CQL Statement</h2>
 
-
-These are the properties for the CQL statement bean, which gets injected into a client bean. All of these properties correlate to those found in the [Cassandra Statement](http://docs.datastax.com/en/drivers/java/2.1/com/datastax/driver/core/Statement.html) class.
+So to recap: A CQL component self-injects all client beans that is locates and the client beans can be injected with any number of CQL statements. Recall that you can either explicitly inject a certain set of CQL statements into the client or you can let the client self-inject all the CQL statements that it locates in its respective bean factory.  
+ 
+This section lists and describes all of the properties for the CQL statement bean. All of these properties correlate to those found in the [Cassandra Statement](http://docs.datastax.com/en/drivers/java/2.1/com/datastax/driver/core/Statement.html) class.
 
 <u>fetchSize</u>
 

@@ -138,10 +138,60 @@ public class GenericTest {
 			assertTrue(cqlComp.isStarted());
 			assertTrue(cqlComp.getComponentProfile() != null);
 			assertTrue(cqlComp.getClients() != null);
-			assertTrue(cqlComp.getClients().isEmpty() == false);			
+			assertTrue(cqlComp.getClients().isEmpty() == false);
 			assertTrue(cqlComp.getClients().size() == 1);
 			assertTrue(cqlComp.getClients().get("user") != null);
-			assertTrue(cqlComp.getClients().get("user").getDefaultMethod() == Method.INSERT);		
+			assertTrue(cqlComp.getClients().get("user").getDefaultMethod() == Method.INSERT);	
+			assertTrue(cqlComp.getClients().get("user").getCqlStmnts4Select().size() == 1);
+			assertTrue(cqlComp.getClients().get("user").getCqlStmnts4Delete().size() == 0);
+			assertTrue(cqlComp.getClients().get("user").getCqlStmnts4Insert().size() == 1);
+			assertTrue(cqlComp.getClients().get("user").getCqlStmnts4Update().size() == 0);
+			System.out.println("*** stopping camel2; time =  "
+					+ System.currentTimeMillis() / 1000);
+			camelContext.stop();
+			System.out.println("*** camel2 stopped; time =  "
+					+ System.currentTimeMillis() / 1000);
+		} else {
+			System.out.println("done with test B");
+		}
+	}
+
+	@Test
+	public void testD() throws Exception {
+		// create our context file
+		try {
+			context = new ClassPathXmlApplicationContext("camel4.xml");
+		} catch (BeansException be) {
+			be.printStackTrace();
+			fail("ERROR: unable to load spring context, got this exception: \n"
+					+ be.getLocalizedMessage());
+		}
+		try {
+			Thread.sleep(1000);
+		} catch (Exception e) {
+		}
+
+		Object obj = context.getBean(CamelContext.class);
+
+		if (obj != null) {
+			CamelContext camelContext = (CamelContext) obj;
+			// N.B. We're invoking the cql component called "cql1" that is
+			// defined in the camel4.xml
+			Component comp = camelContext.getComponent("cql1");
+			assertTrue(comp != null);
+			assertTrue(comp instanceof CqlComponent);
+			CqlComponent cqlComp = (CqlComponent) comp;
+			assertTrue(cqlComp.isStarted());
+			assertTrue(cqlComp.getComponentProfile() != null);
+			assertTrue(cqlComp.getClients() != null);
+			assertTrue(cqlComp.getClients().isEmpty() == false);
+			assertTrue(cqlComp.getClients().size() == 1);
+			assertTrue(cqlComp.getClients().get("user") != null);
+			assertTrue(cqlComp.getClients().get("user").getDefaultMethod() == Method.INSERT);
+			assertTrue(cqlComp.getClients().get("user").getCqlStmnts4Select().size() == 0);
+			assertTrue(cqlComp.getClients().get("user").getCqlStmnts4Delete().size() == 0);
+			assertTrue(cqlComp.getClients().get("user").getCqlStmnts4Insert().size() == 2);
+			assertTrue(cqlComp.getClients().get("user").getCqlStmnts4Update().size() == 0);
 			System.out.println("*** stopping camel2; time =  "
 					+ System.currentTimeMillis() / 1000);
 			camelContext.stop();

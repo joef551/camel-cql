@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:camel="http://camel.apache.org/schema/spring"
+	xmlns:util="http://www.springframework.org/schema/util"
+	xsi:schemaLocation="
+       http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd
+       http://camel.apache.org/schema/spring http://camel.apache.org/schema/spring/camel-spring.xsd">
+
+	<camelContext xmlns="http://camel.apache.org/schema/spring">
+		<route id="camel1-route">
+			<from uri="timer://foo?repeatCount=1" />
+			<to uri="cql1:user" />
+		</route>
+	</camelContext>
+
+	<!-- This SQL component will get initialized with the beans in this file -->
+	<bean id="cql1" class="org.metis.cassandra.CqlComponent">
+		<!-- Giving the CqlComponent a bogus contextFileName essentially disables 
+			it from including Client beans in the external context file. -->
+		<property name="contextFileName" value="bogusFile.xml" />
+	</bean>
+
+	<!-- A Client bean called user that auto-injects the client beans. It will 
+		fall back on INSERT as the default method. -->
+	<bean id="user" class="org.metis.cassandra.Client">
+		<property name="keyspace" value="videodb" />
+		<property name="clusterBean" ref="cluster1" />
+	</bean>
+
+	<!-- A list of CQL statements used for supporting the user Client -->
+
+	<bean id="insert1" class="org.metis.cassandra.CqlStmnt">
+		<property name="statement"
+			value="insert into users (username, created_date, email, firstname,
+					lastname, password) values (`text:username`,
+					`timestamp:created_date`, `list:text:email`,
+					`text:firstname`,`text:lastname`,`text:password`)" />
+	</bean>
+	<bean id="insert2" class="org.metis.cassandra.CqlStmnt">
+		<property name="statement"
+			value="insert into users (username, created_date, email, firstname,
+					lastname, password) values (`text:user`,
+					`timestamp:created_date`, `list:text:email`,
+					`text:firstname`,`text:lastname`,`text:password`)" />
+	</bean>
+
+	<bean id="cluster1" class="org.metis.cassandra.ClusterBean">
+		<property name="clusterName" value="myCluster" />
+		<property name="clusterNodes" value="127.0.0.1" />
+		<property name="loadBalancingPolicy" ref="roundRobin" />
+		<property name="reconnectionPolicy" ref="reconnectionPolicy" />
+		<property name="retryPolicy" ref="retryPolicy" />
+		<property name="metricsOptions" ref="metricsOptions" />
+		<property name="protocolOptions" ref="protocolOptions" />
+		<property name="socketOptions" ref="socketOptions" />
+		<property name="poolingOptions" ref="poolingOptions" />
+		<property name="listOfPoolingOptions">
+			<list>
+				<ref bean="localOption" />
+				<ref bean="remoteOption" />
+			</list>
+		</property>
+		<property name="queryOptions" ref="queryOptions" />
+	</bean>
+
+	<!-- Referenced Beans -->
+	<bean id="roundRobin" class="com.datastax.driver.core.policies.RoundRobinPolicy" />
+	<bean id="reconnectionPolicy"
+		class="com.datastax.driver.core.policies.ExponentialReconnectionPolicy">
+		<constructor-arg type="long" value="10" />
+		<constructor-arg type="long" value="10000" />
+	</bean>
+	<bean id="retryPolicy"
+		class="com.datastax.driver.core.policies.DowngradingConsistencyRetryPolicy" />
+
+	<bean id="metricsOptions" class="com.datastax.driver.core.MetricsOptions">
+		<constructor-arg name="jmxEnabled" value="true" />
+	</bean>
+	<bean id="protocolOptions" class="com.datastax.driver.core.ProtocolOptions">
+		<constructor-arg name="port" value="9042" />
+		<!-- The protocolVersion can be null, in which case the version used will 
+			be the biggest version supported by the first node the driver connects to -->
+		<constructor-arg name="protocolVersion">
+			<bean id="protocolVersion" class="com.datastax.driver.core.ProtocolVersion"
+				factory-method="fromInt">
+				<constructor-arg value="2" />
+			</bean>
+		</constructor-arg>
+		<constructor-arg name="maxSchemaAgreementWaitSeconds"
+			value="2" />
+		<constructor-arg name="sslOptions">
+			<null />
+		</constructor-arg>
+		<constructor-arg name="authProvider">
+			<null />
+		</constructor-arg>
+	</bean>
+	<bean id="socketOptions" class="com.datastax.driver.core.SocketOptions" />
+	<bean id="poolingOptions" class="com.datastax.driver.core.PoolingOptions" />
+	<bean id="localOption" class="org.metis.cassandra.PoolingOption">
+		<property name="distance" value="local" />
+		<property name="coreConnectionsPerHost" value="5" />
+		<property name="maxConnectionsPerHost" value="10" />
+		<property name="maxSimultaneousRequestsPerConnectionThreshold"
+			value="2" />
+		<property name="maxSimultaneousRequestsPerHostThreshold"
+			value="5" />
+	</bean>
+	<bean id="remoteOption" class="org.metis.cassandra.PoolingOption">
+		<property name="distance" value="remote" />
+		<property name="coreConnectionsPerHost" value="2" />
+		<property name="maxConnectionsPerHost" value="10" />
+		<property name="maxSimultaneousRequestsPerConnectionThreshold"
+			value="2" />
+		<property name="maxSimultaneousRequestsPerHostThreshold"
+			value="5" />
+	</bean>
+
+	<!-- An example of how to inject an Enum of ONE for the consistency level -->
+	<bean id="queryOptions" class="com.datastax.driver.core.QueryOptions">
+		<property name="consistencyLevel">
+			<util:constant static-field="com.datastax.driver.core.ConsistencyLevel.ONE" />
+		</property>
+	</bean>
+
+</beans>
