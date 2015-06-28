@@ -213,7 +213,7 @@ When a request message arrives at a CQL endpoint, in the form of a Camel in-mess
 
 <u>fetchSize</u>
 
-The **fetchSize**, which is used exclsuively by the SELECT statement, controls how many rows will be retrieved as part of a result set (the goal being to avoid loading too much results in memory for queries yielding large results). Please note that while a value as low as 1 can be used, it is **highly** discouraged to use such a low value in practice, as it will yield very poor performance. If in doubt, using the [default](http://docs.datastax.com/en/drivers/java/2.1/com/datastax/driver/core/QueryOptions.html#DEFAULT_FETCH_SIZE) is probably a good idea. You can override the default via the [QueryOptions](#queryoptions].
+The **fetchSize**, which is used exclsuively by the SELECT statement, controls how many rows will be retrieved as part of a result set (the goal being to avoid loading too much results in memory for queries yielding large results). Please note that while a value as low as 1 can be used, it is **highly** discouraged to use such a low value in practice, as it will yield very poor performance. If in doubt, using the [default](http://docs.datastax.com/en/drivers/java/2.1/com/datastax/driver/core/QueryOptions.html#DEFAULT_FETCH_SIZE) is probably a good idea. You can override the default via the [QueryOptions](#queryoptions).
 
 <u>consistencyLevel</u>
 
