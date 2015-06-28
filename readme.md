@@ -21,7 +21,7 @@ Where "clientName" uniquely identifies a Cassandra [Client](#client) bean.
 A Cassandra CQL component is configured through either one of the following:
 
 1. The XML file that includes or defines the Camel contexts, routes, and Cassandra CQL component. As an example, see the file called "camel1.xml" in the project's test resources directory.  
-2. An XML file that is external to the XML file that includes the corresponding Camel context and route(s). This external XML file is, by default, called "cassandra.xml" and it must reside in the application's class path. To override the default "cassandra.xml" file name, use the **metis.cassandra.spring.context** system property or define a CQL component bean (see below) that specifies the 'contextFile' property.
+2. An XML file that is external to the XML file that defines the corresponding Camel context and route(s). This external XML file is, by default, called "cassandra.xml" and it must reside in the application's class path. To override the default "cassandra.xml" file name, use the **metis.cassandra.spring.context** system property or define a CQL component bean (see example below) that specifies the 'contextFile' property. 
 
 ```xml
 <bean id="cql1" class="org.metis.cassandra.CqlComponent">
@@ -34,6 +34,9 @@ A Cassandra CQL component is configured through either one of the following:
   </route>
 </camelContext>
 ``` 
+
+The above snippet defines a CQL component called "cql1" that is referenced by a Camel route called "camel1-route". The CQL component will search for an external configuration file called, "mycfg.xml".  
+
 Note that if you take configuration approach #1 above, the corresponding CQL component will still look for an external "cassandra.xml" file and if one is found, the CQL component will auto-inject any [Client](#client) beans found in that external file, as well as those [Client](#client) beans found in the hosting Camel XML file (a.k.a., Camel registry). The client bean is described in the following section. 
 
 Via either of the two configuration approaches described above, you define and configure the beans described in the following subsections. As you read through the following subsections, please keep in mind the use of [Camel property placeholders](http://camel.apache.org/using-propertyplaceholder.html), which provide for dynamic configurations.  
@@ -45,9 +48,11 @@ For example configuration files, see the set of XML files in the project's .../t
 <h2 id="client">Client</h2>
 
 
-The [Client](#client) bean is a thread-safe component that is used by the CQL component for accessing a Cassandra cluster, a keyspace within the cluster, and any tables within the keyspace. The CQL component will automatically inject itself with all the client beans that it locates within its application context. There is no need to explicitly wire the CQL component to the client beans. The CQL endpoint's URI is used to identify the target client bean. For example, a URI of `cql:user` specifies the client bean with an id of "user", which may logically be used for accessing the "user" table in a Cassandra keyspace. Also see [Client Mapper](#clientmapper) for using ant-style pattern matching to identify a client bean. 
+The [Client](#client) bean is a thread-safe component that is used by the CQL component for accessing a Cassandra cluster, a keyspace within the cluster, and any tables within the keyspace. You can define any number of client beans, and the CQL component will automatically inject itself with all the client beans that it locates within its application context. So there is no need to explicitly wire the CQL component to the client beans. 
 
-Each client bean that you define must be assigned one or more [CQL statements](#cqlstatement), which can be any combination of SELECT, UPDATE, DELETE, and INSERT query method. The incoming request message (i.e., Camel in-message) specifies a method, as well as input parameters (key:value pairs). The combination of specified method and input parameters is used to identify which of the client's CQL statements are to be used for the corresponding request message. The method is specified in the Camel Exchange's input message via a header called, "**metis.cassandra.method**". If that header is not present, the client will fall back on a default method. The default method can be either injected into the client or you can have the client choose a default method based on its injected CQL statements. You can inject the default method via the 'defaultMethod' property. For example:
+The CQL endpoint's URI is used to identify the target client bean. For example, a URI endpoint of `cql:user` specifies the client bean with an id of "user", which may logically be used for accessing the "user" table in a Cassandra keyspace. Also see [Client Mapper](#clientmapper) for using ant-style pattern matching to identify a client bean. 
+
+Each client bean that you define must be assigned one or more [CQL statements](#cqlstatement), which can be any combination of SELECT, UPDATE, DELETE, and INSERT CQL statements. A CQL endpoint's incoming request message (i.e., Camel in-message) specifies a method, as well as zero or more input parameters (key:value pairs). The combination of specified method and input parameters is used to identify which of the client's CQL statements are to be used for the corresponding request message. The method is specified in the Camel Exchange's input message via a header called, "**metis.cassandra.method**". If that header is not present, the client will fall back on a default method. The default method can be either injected into the client or you can have the client choose a default method based on its injected CQL statements. You can inject the default method via the 'defaultMethod' property. For example:
 
 ```xml
 <bean id="user" class="org.metis.cassandra.Client">
@@ -61,7 +66,7 @@ Each client bean that you define must be assigned one or more [CQL statements](#
 
 If a default method is not injected, the client selects one based on its injected CQL statements. If the injected CQL statements comprise just one type of method, then that method will be the default method. For example, if all the injected CQL statements are of type DELETE, then DELETE will be the default method for the client. However, if there exists a combination of CQL statements (e.g., SELECT and DELETE), then a default method cannot be determined.   
  
-If the incoming request message does not include input parameters, the client will choose the CQL statement not having any parameterized fields (see below); therefore, you should never have more than one non-parameterized CQL statement per method type.  The input parameters are passed in as either a Map, List of Maps, or JSON object. JSON objects are in the form of a String or InputStream object, which are transformed to either a Map or List of Maps. Please note that all incoming Camel exchanges must have the **InOut** message exchange pattern (MEP). The response message (Camel out message) is sent back as a List of Maps. 
+If the incoming request message does not include input parameters, the client will choose the CQL statement not having any parameterized fields (see below); therefore, you should never have more than one non-parameterized CQL statement per CQL statement type.  The input parameters are passed in as either a Map, List of Maps, or JSON object. JSON objects are in the form of a String or InputStream object, which are transformed to either a Map or List of Maps. Please note that all incoming Camel exchanges must have the **InOut** message exchange pattern (MEP). The response message (Camel out message) is sent back as a List of Maps. 
 
 So through a single CQL endpoint, you can invoke any of the CQL statements that are assigned to its corresponding client. This, therefore, precludes the endpoint from getting nailed to any one particular CQL statement for it is the method and input parameters that decide which CQL statement will be used. Here's a snippet of XML that defines a client bean called "user". 
 
@@ -85,7 +90,7 @@ The following describe each of the client bean's properties.
 
 <u>cqls</u>
 
-The **cqls** property is used to assign or wire the client bean to one or more [CQL statements](#cqlstatement). In the example above, the client bean has been assigned four CQL statements: three selects and one insert. These are the referenced CQL statements:
+The **cqls** property is used for injecting the client bean with one or more [CQL statements](#cqlstatement). In the example above, the client bean has been injected with four CQL statements: three selects and one insert. These are the referenced CQL statements:
 
 ```xml
 <!-- A list of CQL statements used for supporting the user Client -->
@@ -112,7 +117,7 @@ The **cqls** property is used to assign or wire the client bean to one or more [
 </bean>
 ```
 
-If a ***cqls*** property is not specified, the client will auto-inject all CQL statements found in its application context (bean factory). So configuring the above client can be simplified as follows: 
+If a ***cqls*** property is not specified, the client bean will auto-inject all CQL statements that it finds in its application context (bean factory). So the above client bean definitio can be simplified as follows: 
 
 ```xml
 <bean id="user" class="org.metis.cassandra.Client"> 
@@ -123,15 +128,16 @@ If a ***cqls*** property is not specified, the client will auto-inject all CQL s
 
 <u>keyspace</u>
 
-The **keyspace** property is used to specify the name of the keyspace, within a Cassandra cluster, that the client bean is to use. 
+The **keyspace** property is used to specify the name of the keyspace, within a Cassandra cluster, that the client bean is to refernce. Note that this is overriden when a CQL statement provides a fully qualified keyspace name (e.g., keyspace_name.table_name) that is different than the one assigned to the client bean.  
 
 <u>clusterBean</u>
 
-The **clusterBean** property references a [ClusterBean](#clusterbean) within the Spring XML file that is used to connect to a Cassandra cluster.
+The **clusterBean** property references a [ClusterBean](#clusterbean) that is used to connect to a Cassandra cluster. 
 
 <u>defaultMethod</u>
 
-As previously described, the optional  **defaultMethod** property is used for specifying the default method to be used by this client. It accepts a Method enum, as defined in org.metis.cassandra.Client.Method. There are 4 possible types: SELECT, INSERT, DELETE, and UPDATE.  Here's an example of using the 'util' namespace for assgning a Method of INSERT.
+As previously described, the optional  **defaultMethod** property is used for specifying the default method to be used by the client bean. It accepts a Method enum, as defined in `org.metis.cassandra.Client.Method`. There are 4 possible types: SELECT, INSERT, DELETE, and UPDATE.  Here's an example of using the 'util' namespace for assgning a Method of INSERT.
+
 ```xml
 <bean id="user" class="org.metis.cassandra.Client">
 	<property name="keyspace" value="videodb" />
@@ -145,13 +151,13 @@ As previously described, the optional  **defaultMethod** property is used for sp
 
 <h2 id="cqlstatement">CQL Statement</h2>
 
-So to recap; a CQL component self-injects all [Client](#client) beans that it locates and these Client beans are injected with any number of CQL statements. Recall that you can either explicitly inject a certain set of CQL statements into the client or you can let the client self-inject all the CQL statements that it locates in its respective bean factory.  
+Before proceeding wit this next bean, lets recap what has been covered. A CQL component self-injects all [Client](#client) beans that it locates and these Client beans are injected with any number of CQL statements. Recall that you can either explicitly inject a certain set of CQL statements into the client or you can let the client self-inject all the CQL statements that it locates in its respective application context.   
  
-This section lists and describes all of the properties for the CQL statement bean. All of these properties correlate to those found in the [Cassandra Statement](http://docs.datastax.com/en/drivers/java/2.1/com/datastax/driver/core/Statement.html) class.
+This section lists and describes all of the properties for the CQL statement bean. Most of these properties correlate to those found in the [Cassandra Statement](http://docs.datastax.com/en/drivers/java/2.1/com/datastax/driver/core/Statement.html) class.
 
 <u>statement</u>
 
-The **statement** property is used to specify the actual CQL statement. Here are the same examples listed in the previous section:
+The **statement** property is used to specify the actual CQL statement. Here's the same set of example statements listed in the previous section:
 
 ```xml
 <!-- A list of CQL statements used for supporting the user Client -->
@@ -178,20 +184,22 @@ The **statement** property is used to specify the actual CQL statement. Here are
 </bean>
 ```
 
-Note that three of the statements have fields delimited by backticks (e.g., \`list:text:email\`). These are *parameterized fields* that comprise 2 or 3 subfields, which are delimited by a ":" character. A CQL statement's parameterized fields are used for binding input parameters, which arrive with the request message, to the corresponding CQL prepared statement. So any CQL statement with a parameterized field is essentially a CQL prepared statement. The first subfield (from right-to-left) of a parameterized field is required, and it specifies the name of the input parameter that corresponds to the field. In other words, it must match the key of a key:value pair that is passed in via the request message. In the previous example, 'email' is the name of the input parameter. The next subfield is the type of input parameter, and it must match one of the Cassandra [data types](http://www.datastax.com/drivers/java/2.1/com/datastax/driver/core/DataType.Name.html). The last subfield, which is optional, is used to specify a collection (list, map, or set). Here are a couple of examples:
+Note that three of the statements have fields delimited by backticks (e.g., \`list:text:email\`). These are *parameterized fields* that comprise 2 or 3 subfields, which are delimited by a ":" character. So any CQL statement with one or more parameterized fields is treated as a CQL prepared statement. A CQL prepared statement's parameterized fields are used for binding input parameters, which arrive via the CQL endpoint's incoming request message, to the prepared statement. 
 
-1. **\`list:text:email\`** is a parameterized field that is matched up to an input parameter whose key is 'email' and whose value is a list of ascii text strings. 
-2. **\`text:username\`** is a parameterized field that is matched up to an input parameter whose key is 'username' and whose value is an ascii text string. 
+The first subfield (from right-to-left) of a parameterized field is required, and it specifies the name of the input parameter that corresponds to the field. In other words, it must match the key name of a `key:value` pair that is passed in via an incoming request message. In the "select2" example statement above, "username" is the key name of the input parameter. The next subfield is the type of input parameter, and it must match one of the Cassandra [data types](http://www.datastax.com/drivers/java/2.1/com/datastax/driver/core/DataType.Name.html). The last subfield, which is optional, is used to specify a collection (list, map, or set). Here are a couple of examples:
+
+1. **\`list:text:email\`** is a parameterized field that is matched up to an input parameter whose key name is 'email' and whose value is a list of ascii text strings. 
+2. **\`text:username\`** is a parameterized field that is matched up to an input parameter whose key name is 'username' and whose value is an ascii text string. 
 
 Note from [1] about using collections. <i>"Use collections, such as Set, List or Map, when you want to store or denormalize a small amount of data. Values of items in collections are limited to 64K. Other limitations also apply. Collections work well for storing data such as the phone numbers of a user and labels applied to an email. If the data you need to store has unbounded growth potential, such as all the messages sent by a user or events registered by a sensor, do not use collections. Instead, use a table having a compound primary key and store data in the clustering columns".</i>
 
-All CQL statements for a particular method must be distinct with respect to the parameterized fields. If you have two statements with the same query method and those two methods have the same number of parameterized fields with matching key names, then an exception will be thrown during the Client bean's initialization. For example, these two CQL statements, when assigned to a Client bean, will result in an exception. 
+All CQL statements for a particular statement type (query method) must be distinct with respect to the parameterized fields. If you have two statements with the same query method and those two methods have the same number of parameterized fields with matching key names, then an exception will be thrown during the Client bean's initialization. For example, these two CQL statements, when assigned to a Client bean, will result in an exception. 
 
 ````
 select username from username_video_index where username =`text:username`
 select first, last from user where username =`text:username`
 ````
-Even though the two statements access different tables, they share the same number of identical parameterized fields; therefore, one is not distinct from the other wrt the parameterized fields. The following two statements will not result in an exception.
+Even though the two statements access different tables, they share the same number of identical parameterized fields; therefore, one is not distinct from the other with respect to the parameterized fields. The following two statements will not result in an exception.
 
 ````
 select username from username_video_index where username =`text:username`
@@ -199,14 +207,13 @@ select first, last from user where username =`text:username` and `int:age` = 59
 ````
 Even though they share one identical parameterized field, they do not have an equal number of parameterized fields.
 
-When a request message arrives, in the form of a Camel in-message, that specifies a SELECT method, the three **distinct** SELECT statements (from the above set) become candidates for the request. The input parameters (key:value pairs) in the request message dictate which of the three to use. For example, if the request message contains one Map with one key:value pair of `username:joe`, then the Map is bound to the second SELECT CQL statement. If the request message contains only one Map with one key:value pair of `user:joe`, then the Map is bound to the third SELECT statement. If there is no request message (i.e., the Camel exchange does not include a payload), then the first CQL select statement is used because it has no parameterized fields. An exception is thrown if a match cannot be found. 
+When a request message arrives at a CQL endpoint, in the form of a Camel in-message, that specifies a SELECT method, the three **distinct** SELECT statements (from the above set) become candidates for the request. The input parameters (key:value pairs) in the request message dictate which of the three to use. For example, if the request message contains one Map with one key:value pair of `username:joe`, then the Map is bound to the second SELECT CQL statement. If the request message contains only one Map with one key:value pair of `user:joe`, then the Map is bound to the third SELECT statement. If there is no request message (i.e., the Camel exchange does not include an in body), the first CQL select statement is used because it has no parameterized fields. An exception is thrown if a match cannot be found. 
 
-<u>**If the in-message comprises a list of maps, then all of the maps in the payload must have the same set of keys! </u>** If there is a list of maps, then it represents a batch UPDATE, INSERT, or DELETE. A list of maps cannot be used for a SELECT.  
-
+**If the in-message comprises a list of maps, then all of the maps in the payload must have the same set of key names!** If there is a list of maps, then it represents a batch UPDATE, INSERT, or DELETE. A list of maps cannot be used for a SELECT.  
 
 <u>fetchSize</u>
 
-The **fetchSize**, which is used exclsuively by the SELECT statement, controls how many rows will be retrieved as part of a result set (the goal being to avoid loading too much results in memory for queries yielding large results). Please note that while a value as low as 1 can be used, it is **highly** discouraged to use such a low value in practice, as it will yield very poor performance. If in doubt, using the default is probably a good idea.
+The **fetchSize**, which is used exclsuively by the SELECT statement, controls how many rows will be retrieved as part of a result set (the goal being to avoid loading too much results in memory for queries yielding large results). Please note that while a value as low as 1 can be used, it is **highly** discouraged to use such a low value in practice, as it will yield very poor performance. If in doubt, using the [default](http://docs.datastax.com/en/drivers/java/2.1/com/datastax/driver/core/QueryOptions.html#DEFAULT_FETCH_SIZE) is probably a good idea. You can override the default via the [QueryOptions](#queryoptions)
 
 <u>consistencyLevel</u>
 
@@ -391,11 +398,10 @@ The **listOfPoolingOptions** property specifies a list of org.org.metis.cassandr
 
 The **socketOptions** property is used for specifying low-level [SocketOptions](http://www.datastax.com/drivers/java/2.1/com/datastax/driver/core/SocketOptions.html) (e.g., keepalive, solinger, etc.) for the connections to the cluster nodes. 
 
+[  ](id:queryoptions)
 <u>queryOptions</u>
 
-The **queryOptions** property is used for specifying options for the [QueryOptions](http://www.datastax.com/drivers/java/2.1/com/datastax/driver/core/QueryOptions.html) for the queries.  
-
-
+The **queryOptions** property is used for specifying options for the for the queries. For more details see [QueryOptions](http://www.datastax.com/drivers/java/2.1/com/datastax/driver/core/QueryOptions.html).   
 
 
 <h1 id="WhoMetis">So Who or What Was Metis?</h1>
