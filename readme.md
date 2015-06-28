@@ -151,7 +151,7 @@ As previously described, the optional  **defaultMethod** property is used for sp
 
 <h2 id="cqlstatement">CQL Statement</h2>
 
-Before proceeding wit this next bean, lets recap what has been covered. A CQL component self-injects all [Client](#client) beans that it locates and these Client beans are injected with any number of CQL statements. Recall that you can either explicitly inject a certain set of CQL statements into the client or you can let the client self-inject all the CQL statements that it locates in its respective application context.   
+Before proceeding with this next bean, lets recap what has been covered. A CQL component self-injects all [Client](#client) beans that it locates and these Client beans are injected with any number of CQL statements. Recall that you can either explicitly inject a certain set of CQL statements into the client or you can let the client self-inject all the CQL statements that it locates in its respective application context.   
  
 This section lists and describes all of the properties for the CQL statement bean. Most of these properties correlate to those found in the [Cassandra Statement](http://docs.datastax.com/en/drivers/java/2.1/com/datastax/driver/core/Statement.html) class.
 
@@ -213,7 +213,7 @@ When a request message arrives at a CQL endpoint, in the form of a Camel in-mess
 
 <u>fetchSize</u>
 
-The **fetchSize**, which is used exclsuively by the SELECT statement, controls how many rows will be retrieved as part of a result set (the goal being to avoid loading too much results in memory for queries yielding large results). Please note that while a value as low as 1 can be used, it is **highly** discouraged to use such a low value in practice, as it will yield very poor performance. If in doubt, using the [default](http://docs.datastax.com/en/drivers/java/2.1/com/datastax/driver/core/QueryOptions.html#DEFAULT_FETCH_SIZE) is probably a good idea. You can override the default via the [QueryOptions](#queryoptions)
+The **fetchSize**, which is used exclsuively by the SELECT statement, controls how many rows will be retrieved as part of a result set (the goal being to avoid loading too much results in memory for queries yielding large results). Please note that while a value as low as 1 can be used, it is **highly** discouraged to use such a low value in practice, as it will yield very poor performance. If in doubt, using the [default](http://docs.datastax.com/en/drivers/java/2.1/com/datastax/driver/core/QueryOptions.html#DEFAULT_FETCH_SIZE) is probably a good idea. You can override the default via the [QueryOptions](#queryoptions].
 
 <u>consistencyLevel</u>
 
@@ -398,7 +398,8 @@ The **listOfPoolingOptions** property specifies a list of org.org.metis.cassandr
 
 The **socketOptions** property is used for specifying low-level [SocketOptions](http://www.datastax.com/drivers/java/2.1/com/datastax/driver/core/SocketOptions.html) (e.g., keepalive, solinger, etc.) for the connections to the cluster nodes. 
 
-[  ](id:queryoptions)
+
+<h2 id="queryoptions"> </h2>
 <u>queryOptions</u>
 
 The **queryOptions** property is used for specifying options for the for the queries. For more details see [QueryOptions](http://www.datastax.com/drivers/java/2.1/com/datastax/driver/core/QueryOptions.html).   
