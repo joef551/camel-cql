@@ -238,7 +238,7 @@ The **[retryPolicy](http://docs.datastax.com/en/drivers/java/2.1/com/datastax/dr
 
 <u>pagingState</u>
 
-The **pagingState** boolean property sets whether to use the paging state to fetch results. If set to true, this will cause the next execution of this SELECT statement to fetch results from a given page, rather than restarting from the beginning. Please note that the paging state can only be reused between perfectly identical statements (same query string, same bound parameters). 
+The **pagingState** boolean property sets whether to use the [paging state](http://docs.datastax.com/en/drivers/java/2.1/com/datastax/driver/core/PagingState.html) to fetch results. If set to true, this will cause the next execution of this SELECT statement to fetch results from a given page, rather than restarting from the beginning. When pagingState is set to true, the CQL endpoint returns the current paging state as a String object via the out message's "metis.cql.paging.state" header. A subsequent invocation of the SELECT method then specifies the current paging state via the in message's "metis.cql.paging.state" header. The CQLStmnt is stateless, thus it is upto the calling application/route to maintain this state information across multiple invocations of the CQLStmnt. 
 
 <u>tracing</u>
 
