@@ -391,7 +391,10 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 		// execute the Map(s) and hoist the returned List of Maps up into the
 		// Exchange's out message
 		exchange.getOut().setBody(execute(listMap, inMsg));
-
+		if (inMsg.getHeader(CASSANDRA_PAGING_STATE) != null) {
+			exchange.getOut().setHeader(CASSANDRA_PAGING_STATE,
+					inMsg.getHeader(CASSANDRA_PAGING_STATE));
+		}
 	}
 
 	/**
@@ -499,6 +502,7 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 
 			List<Map<String, Object>> listOutMaps = new ArrayList<Map<String, Object>>();
 			Row row = null;
+			String pagingState = null;
 			// iterate through the returned result sets
 			for (ResultSet resultSet : resultSets) {
 				// grab the metadata for the result set

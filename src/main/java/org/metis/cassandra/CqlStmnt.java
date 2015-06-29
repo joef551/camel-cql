@@ -44,7 +44,8 @@ import org.metis.cassandra.Client.Method;
 import static org.metis.utils.Constants.*;
 
 /**
- * Object that encapsulates or represents a CQL statement.
+ * Object that encapsulates or represents a CQL statement. This is expected to
+ * be a singleton bean!
  */
 public class CqlStmnt implements InitializingBean, BeanNameAware {
 
@@ -63,7 +64,6 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 	private RetryPolicy retryPolicy;
 	private ConsistencyLevel consistencyLevel;
 	private ConsistencyLevel serialConsistencyLevel;
-	private PagingState myPagingState;
 
 	// this bean's id
 	private String beanName;
@@ -84,7 +84,7 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 	// insert, update, etc.
 	private Method cqlStmntType;
 
-	// marks this as a "SELECT JSON ..." statement
+	// marks this statement as a "SELECT JSON ..." statement
 	private boolean isJsonSelect;
 
 	// a pool, of sorts, that is used to pool prepared and simple statements for
@@ -477,10 +477,9 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 	}
 
 	/**
-	 * Called by the Client to execute this CQL statement with the given params.
+	 * Called by the Client bean to execute this CQL statement with the given
+	 * params.
 	 * 
-	 * @param params
-	 * @throws CQLException
 	 */
 	public ResultSet execute(Map<String, Object> inParams, Message inMsg,
 			Session session) {
@@ -488,14 +487,17 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 		Map<String, Object> params = (inParams == null) ? new HashMap<String, Object>()
 				: inParams;
 
-		LOG.debug(getBeanName() + ":execute: executing this statement: {} ",
-				getStatement());
-		LOG.debug(getBeanName()
-				+ ":execute: executing this prepared statement: {} ",
-				getPreparedStr());
-		LOG.debug(getBeanName()
-				+ ":execute: executing with this number {} of params",
-				params.size());
+		if (LOG.isDebugEnabled()) {
+			LOG.debug(
+					getBeanName() + ":execute: executing this statement: {} ",
+					getStatement());
+			LOG.debug(getBeanName()
+					+ ":execute: executing this prepared statement: {} ",
+					getPreparedStr());
+			LOG.debug(getBeanName()
+					+ ":execute: executing with this number {} of params",
+					params.size());
+		}
 
 		if (session == null) {
 			LOG.error("execute: session is null");
@@ -508,17 +510,22 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 
 		// grab the statement pool pertaining to the session.
 		// if one does not exist, create one
-		CqlStmntPool cqlStmntPool = stmntPool.get(session);
-		if (cqlStmntPool == null) {
-			cqlStmntPool = new CqlStmntPool();
-			stmntPool.put(session, cqlStmntPool);
+		CqlStmntPool cqlStmntPool = null;
+		synchronized (stmntPool) {
+			cqlStmntPool = stmntPool.get(session);
+			if (cqlStmntPool == null) {
+				cqlStmntPool = new CqlStmntPool();
+				stmntPool.put(session, cqlStmntPool);
+			}
 		}
 
 		// if this CQL statement is a prepared statement, ensure that it has
 		// been prepared for this session
-		if (isPrepared() && cqlStmntPool.getPreparedStatement() == null) {
-			cqlStmntPool
-					.setPreparedStatement(session.prepare(getPreparedStr()));
+		synchronized (this) {
+			if (isPrepared() && cqlStmntPool.getPreparedStatement() == null) {
+				cqlStmntPool.setPreparedStatement(session
+						.prepare(getPreparedStr()));
+			}
 		}
 
 		// grab some default info from Cassy session (if required)
@@ -542,18 +549,21 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 				: session.getCluster().getConfiguration().getQueryOptions()
 						.getDefaultIdempotence();
 
-		LOG.debug(getBeanName() + ":execute: consistency level: {} ",
-				cLevel.toString());
-		LOG.debug(getBeanName() + ":execute: seriel consistency level: {} ",
-				sLevel.toString());
-		LOG.debug(getBeanName() + ":execute: fetchSize: {} ", fetchSize);
-		LOG.debug(getBeanName() + ":execute: RetryPolcy : {} ",
-				retryPolicy.toString());
-		LOG.debug(getBeanName() + ":execute: pagingState : {} ",
-				isPagingState());
-		LOG.debug(getBeanName() + ":execute: idempotent : {} ", idempotent);
-		LOG.debug(getBeanName() + ":execute: defaultTimestamp : {} ",
-				getDefaultTimestamp());
+		if (LOG.isDebugEnabled()) {
+			LOG.debug(getBeanName() + ":execute: consistency level: {} ",
+					cLevel.toString());
+			LOG.debug(
+					getBeanName() + ":execute: seriel consistency level: {} ",
+					sLevel.toString());
+			LOG.debug(getBeanName() + ":execute: fetchSize: {} ", fetchSize);
+			LOG.debug(getBeanName() + ":execute: RetryPolcy : {} ",
+					retryPolicy.toString());
+			LOG.debug(getBeanName() + ":execute: pagingState : {} ",
+					isPagingState());
+			LOG.debug(getBeanName() + ":execute: idempotent : {} ", idempotent);
+			LOG.debug(getBeanName() + ":execute: defaultTimestamp : {} ",
+					getDefaultTimestamp());
+		}
 
 		// first, do some light validation work
 		if (params.size() == 0 && isPrepared()) {
@@ -602,15 +612,22 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 			stmnt.setSerialConsistencyLevel(sLevel);
 			stmnt.setIdempotent(idempotent);
 
+			// check for paging. the current paging state (if any) should be in
+			// the inMsg
 			if (isPagingState() && isSelect()) {
 				String pState = (String) inMsg
 						.getHeader(CASSANDRA_PAGING_STATE);
 				LOG.trace(getBeanName()
 						+ ":execute: paging state retrieved = {}", pState);
 				if (pState != null) {
-
 					stmnt.setPagingState(PagingState.fromString(pState));
+				} else {
+					// null removes any state that was previously set on this
+					// statement
+					stmnt.setPagingState(null);
 				}
+			} else {
+				inMsg.removeHeader(CASSANDRA_PAGING_STATE);
 			}
 
 			if (retryPolicy != null) {
@@ -655,9 +672,12 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 			}
 			resultSet = session.execute(stmnt);
 
+			// save off the new current paging state
 			if (isSelect() && isPagingState()) {
-				setMyPagingState(resultSet.getExecutionInfo().getPagingState());
+				inMsg.setHeader(CASSANDRA_PAGING_STATE, resultSet
+						.getExecutionInfo().getPagingState().toString());
 			}
+
 		} catch (Exception exc) {
 			LOG.error(getBeanName() + ":execute: caught this exception {}", exc
 					.getClass().getName());
@@ -1153,33 +1173,16 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 		this.isJsonSelect = isJsonSelect;
 	}
 
-	/**
-	 * @return the myPagingState
+	/*
+	 * Every CQLStmnt has a pool of simple and bound statements. Note that a
+	 * CQLStmnt is a thread safe singleton bean. It is concurrently accessed by
+	 * many threads of execution. You can have multiple client beans injected
+	 * with the same CqlSmnt singleton bean and each of those Clients could
+	 * conceivable be using different Cassandra sessions. Therefore, each
+	 * CqlStmnt bean maintains a Map of these pools; one pool for each session.
+	 * We don't want to be constantly creating and destroying these Simple and
+	 * Bound statements. Instead, we'd like to reuse them!
 	 */
-	public PagingState getMyPagingState() {
-		return myPagingState;
-	}
-
-	public String getMyPagingStateStr() {
-		return (getMyPagingState() == null) ? null : getMyPagingState()
-				.toString();
-	}
-
-	/**
-	 * @param myPagingState
-	 *            the myPagingState to set
-	 */
-	public void setMyPagingState(PagingState myPagingState) {
-		this.myPagingState = myPagingState;
-	}
-
-	public void setMyPagingState(String pagingState)
-			throws PagingStateException {
-		if (pagingState != null) {
-			setMyPagingState(PagingState.fromString(pagingState));
-		}
-	}
-
 	private class CqlStmntPool {
 
 		private static final int MAX_STACK_SIZE = 50;
@@ -1217,6 +1220,7 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 
 		SimpleStatement getSimpleStatement() {
 			if (isPrepared()) {
+				LOG.warn("Attempt to get simple statement from prepared statement");
 				return null;
 			}
 			synchronized (simpleStack) {
