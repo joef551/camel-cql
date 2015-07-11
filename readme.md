@@ -50,9 +50,9 @@ For example configuration files, see the set of XML files in the project's .../t
 
 The [Client](#client) bean is a thread-safe component that is used by the CQL component for accessing a Cassandra cluster, a keyspace within the cluster, and any tables within the keyspace. You can define any number of client beans, and the CQL component will automatically inject itself with all the client beans that it locates within its application context. So there is no need to explicitly wire the CQL component to the client beans. 
 
-The CQL endpoint's URI is used to identify the target client bean. For example, a URI endpoint of `cql:user` specifies the client bean with an id of "user", which may logically be used for accessing the "user" table in a Cassandra keyspace. Also see [Client Mapper](#clientmapper) for using ant-style pattern matching to identify a client bean. 
+The CQL endpoint's URI is used to identify the target client bean. For example, a URI endpoint of `cql:user` specifies the client bean with an id of "user", which may logically be used for accessing the "user" table in a Cassandra keyspace. Also see [Client Mapper](#clientmapper) for using ant-style pattern matching to identify a client bean. Using a Camel [property place holder](http://camel.apache.org/properties.html), such as `cql:{{client}}` , you can make the endpoint that much more dynamically configurable. 
 
-Each client bean that you define must be assigned one or more [CQL statements](#cqlstatement), which can be any combination of SELECT, UPDATE, DELETE, and INSERT CQL statements. A CQL endpoint's incoming request message (i.e., Camel in-message) specifies a method, as well as zero or more input parameters (key:value pairs). The combination of specified method and input parameters is used to identify which of the client's CQL statements are to be used for the corresponding request message. The method is specified in the Camel Exchange's input message via a header called, "**metis.cassandra.method**". If that header is not present, the client will fall back on a default method. The default method can be either injected into the client or you can have the client choose a default method based on its injected CQL statements. You can inject the default method via the 'defaultMethod' property. For example:
+Each client bean that you define must be assigned one or more [CQL statements](#cqlstatement), which can be any combination of SELECT, UPDATE, DELETE, and INSERT CQL query methods. A CQL endpoint's incoming request message (i.e., Camel in-message's body) specifies one of the four query methods, as well as zero or more input parameters (key:value pairs). The combination of specified query method and input parameters is used to identify which of the client's CQL statements are to be used for the corresponding request message. The query method is specified in the Camel Exchange's input message via a header called, "**metis.cassandra.method**". If that header is not present, the client will fall back on a default query method. The default query method can be either injected into the client or you can have the client choose a default method based on its injected CQL statements. You can inject the default method via the 'defaultMethod' property. For example:
 
 ```xml
 <bean id="user" class="org.metis.cassandra.Client">
@@ -90,7 +90,7 @@ The following describe each of the client bean's properties.
 
 <u>cqls</u>
 
-The **cqls** property is used for injecting the client bean with one or more [CQL statements](#cqlstatement). In the example above, the client bean has been injected with four CQL statements: three selects and one insert. These are the referenced CQL statements:
+The **cqls** property is used for injecting the client bean with a set of [CQL statements](#cqlstatement). In the example above, the client bean has been injected with a set of four CQL statements: three SELECTS and one INSERT. These are the referenced CQL statements:
 
 ```xml
 <!-- A list of CQL statements used for supporting the user Client -->
@@ -117,7 +117,7 @@ The **cqls** property is used for injecting the client bean with one or more [CQ
 </bean>
 ```
 
-If a ***cqls*** property is not specified, the client bean will auto-inject all CQL statements that it finds in its application context (bean factory). So the above client bean definitio can be simplified as follows: 
+If a ***cqls*** property is not specified, the client bean will auto-inject all CQL statements that it finds in its application context (bean factory). So the above client bean definition can be simplified as follows: 
 
 ```xml
 <bean id="user" class="org.metis.cassandra.Client"> 
@@ -151,7 +151,7 @@ As previously described, the optional  **defaultMethod** property is used for sp
 
 <h2 id="cqlstatement">CQL Statement</h2>
 
-Before proceeding with this next bean, lets recap what has been covered. A CQL component self-injects all [Client](#client) beans that it locates and these Client beans are injected with any number of CQL statements. Recall that you can either explicitly inject a certain set of CQL statements into the client or you can let the client self-inject all the CQL statements that it locates in its respective application context.   
+Before proceeding with this next bean, lets recap what has been covered. A CQL component self-injects all [Client](#client) beans that it locates and these Client beans are injected with a set of CQL statements. Recall that you can either explicitly inject a set of CQL statements into the client or you can let the client self-inject all the CQL statements that it locates in its respective application context.   
  
 This section lists and describes all of the properties for the CQL statement bean. Most of these properties correlate to those found in the [Cassandra Statement](http://docs.datastax.com/en/drivers/java/2.1/com/datastax/driver/core/Statement.html) class.
 
@@ -238,7 +238,7 @@ The **[retryPolicy](http://docs.datastax.com/en/drivers/java/2.1/com/datastax/dr
 
 <u>pagingState</u>
 
-The **pagingState** boolean property sets whether to use the [paging state](http://docs.datastax.com/en/drivers/java/2.1/com/datastax/driver/core/PagingState.html) to fetch results. If set to true, this will cause the next execution of this SELECT statement to fetch results from a given page, rather than restarting from the beginning. When pagingState is set to true, the CQL endpoint returns the current paging state as a String object via the out message's "metis.cql.paging.state" header. A subsequent invocation of the SELECT method then specifies the current paging state via the in message's "metis.cql.paging.state" header. The CQLStmnt is stateless, thus it is upto the calling application/route to maintain this state information across multiple invocations of the CQLStmnt. 
+The **pagingState** boolean property sets whether to use the [paging state](http://docs.datastax.com/en/drivers/java/2.1/com/datastax/driver/core/PagingState.html) to fetch results. If set to true, this will cause the next execution of this SELECT statement to fetch results from a given page, rather than restarting from the beginning. When pagingState is set to true, the CQL endpoint returns the current paging state as a String object via the out message's "**metis.cql.paging.state**" header. A subsequent invocation of the SELECT method then specifies the current paging state via the in message's "**metis.cql.paging.state**" header. The CQLStmnt is stateless, thus it is upto the calling application/route to maintain this state information across multiple invocations of the CQLStmnt. 
 
 <u>tracing</u>
 
