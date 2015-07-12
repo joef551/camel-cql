@@ -15,17 +15,19 @@
 		</route>
 	</camelContext>
 
-	<!-- This SQL component will get initialized with the beans in this file -->
+	<!-- This CQL component will get initialized with the beans in this file -->
 	<bean id="cql1" class="org.metis.cassandra.CqlComponent">
 		<!-- Giving the CqlComponent a bogus contextFileName essentially disables 
 			it from including Client beans in the external context file. -->
 		<property name="contextFileName" value="bogusFile.xml" />
 	</bean>
 
-	<!-- A Client bean called user that auto-injects the client beans. It will 
-		fall back on INSERT as the default method. -->
+	<!-- A Client bean called user that auto-injects the CQL statement. -->
 	<bean id="user" class="org.metis.cassandra.Client">
 		<property name="keyspace" value="videodb" />
+		<property name="defaultMethod">
+			<util:constant static-field="org.metis.cassandra.Client.Method.INSERT" />
+		</property>
 		<property name="clusterBean" ref="cluster1" />
 	</bean>
 
@@ -44,6 +46,16 @@
 					lastname, password) values (`text:user`,
 					`timestamp:created_date`, `list:text:email`,
 					`text:firstname`,`text:lastname`,`text:password`)" />
+	</bean>
+	<bean id="propsTest" class="org.metis.cassandra.CqlStmnt">
+		<property name="statement"
+			value="select username, email from users where username =
+					`text:user`" />
+		<property name="pagingState" value="True" />
+		<property name="tracing" value="True" />
+		<property name="idempotent" value="True" />
+		<property name="fetchSize" value="101" />
+		<property name="defaultTimestamp" value="123456789" />
 	</bean>
 
 	<bean id="cluster1" class="org.metis.cassandra.ClusterBean">

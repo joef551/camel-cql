@@ -59,14 +59,9 @@ public class GenericTest {
 			assertTrue(cqlComp.getComponentProfile() != null);
 			assertTrue(cqlComp.getClients() != null);
 			assertTrue(cqlComp.getClients().isEmpty() == false);
-
-			System.out.println("*** stopping camel1; time =  "
-					+ System.currentTimeMillis() / 1000);
 			camelContext.stop();
-			System.out.println("*** camel1 stopped; time =  "
-					+ System.currentTimeMillis() / 1000);
 		} else {
-			System.out.println("done with test A");
+			fail("ERROR: unable to load CamelContext");
 		}
 	}
 
@@ -99,14 +94,9 @@ public class GenericTest {
 			assertTrue(cqlComp.getClients() != null);
 			assertTrue(cqlComp.getClients().isEmpty() == false);
 			// assertTrue(compList.size() == 1);
-
-			System.out.println("*** stopping camel2; time =  "
-					+ System.currentTimeMillis() / 1000);
 			camelContext.stop();
-			System.out.println("*** camel2 stopped; time =  "
-					+ System.currentTimeMillis() / 1000);
 		} else {
-			System.out.println("done with test B");
+			fail("ERROR: unable to load CamelContext");
 		}
 	}
 
@@ -141,18 +131,18 @@ public class GenericTest {
 			assertTrue(cqlComp.getClients().isEmpty() == false);
 			assertTrue(cqlComp.getClients().size() == 1);
 			assertTrue(cqlComp.getClients().get("user") != null);
-			assertTrue(cqlComp.getClients().get("user").getDefaultMethod() == Method.INSERT);	
-			assertTrue(cqlComp.getClients().get("user").getCqlStmnts4Select().size() == 1);
-			assertTrue(cqlComp.getClients().get("user").getCqlStmnts4Delete().size() == 0);
-			assertTrue(cqlComp.getClients().get("user").getCqlStmnts4Insert().size() == 1);
-			assertTrue(cqlComp.getClients().get("user").getCqlStmnts4Update().size() == 0);
-			System.out.println("*** stopping camel2; time =  "
-					+ System.currentTimeMillis() / 1000);
+			assertTrue(cqlComp.getClients().get("user").getDefaultMethod() == Method.INSERT);
+			assertTrue(cqlComp.getClients().get("user").getCqlStmnts4Select()
+					.size() == 1);
+			assertTrue(cqlComp.getClients().get("user").getCqlStmnts4Delete()
+					.size() == 0);
+			assertTrue(cqlComp.getClients().get("user").getCqlStmnts4Insert()
+					.size() == 1);
+			assertTrue(cqlComp.getClients().get("user").getCqlStmnts4Update()
+					.size() == 0);
 			camelContext.stop();
-			System.out.println("*** camel2 stopped; time =  "
-					+ System.currentTimeMillis() / 1000);
 		} else {
-			System.out.println("done with test B");
+			fail("ERROR: unable to load CamelContext");
 		}
 	}
 
@@ -188,17 +178,26 @@ public class GenericTest {
 			assertTrue(cqlComp.getClients().size() == 1);
 			assertTrue(cqlComp.getClients().get("user") != null);
 			assertTrue(cqlComp.getClients().get("user").getDefaultMethod() == Method.INSERT);
-			assertTrue(cqlComp.getClients().get("user").getCqlStmnts4Select().size() == 0);
-			assertTrue(cqlComp.getClients().get("user").getCqlStmnts4Delete().size() == 0);
-			assertTrue(cqlComp.getClients().get("user").getCqlStmnts4Insert().size() == 2);
-			assertTrue(cqlComp.getClients().get("user").getCqlStmnts4Update().size() == 0);
-			System.out.println("*** stopping camel2; time =  "
-					+ System.currentTimeMillis() / 1000);
+			assertTrue(cqlComp.getClients().get("user").getCqlStmnts4Select()
+					.size() == 1);
+			assertTrue(cqlComp.getClients().get("user").getCqlStmnts4Delete()
+					.size() == 0);
+			assertTrue(cqlComp.getClients().get("user").getCqlStmnts4Insert()
+					.size() == 2);
+			assertTrue(cqlComp.getClients().get("user").getCqlStmnts4Update()
+					.size() == 0);
+
+			CqlStmnt cqlStmnt = cqlComp.getClients().get("user")
+					.getCqlStmnts4Select().get(0);
+			assertTrue(cqlStmnt.isIdempotent() == true);
+			assertTrue(cqlStmnt.isTracing() == true);
+			assertTrue(cqlStmnt.isPagingState() == true);
+			assertTrue(cqlStmnt.getFetchSize() == 101);
+			assertTrue(cqlStmnt.getDefaultTimestamp() == 123456789);
 			camelContext.stop();
-			System.out.println("*** camel2 stopped; time =  "
-					+ System.currentTimeMillis() / 1000);
+
 		} else {
-			System.out.println("done with test B");
+			fail("ERROR: unable to load CamelContext");
 		}
 	}
 

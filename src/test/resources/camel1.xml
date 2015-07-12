@@ -8,6 +8,10 @@
        http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd
        http://camel.apache.org/schema/spring http://camel.apache.org/schema/spring/camel-spring.xsd">
 
+	<!-- A very simple example of how the CQL component and its configuration 
+		can reside within the same XML that defines the Camel context and route(s) 
+		that use the CQL component -->
+		
 	<camelContext xmlns="http://camel.apache.org/schema/spring">
 		<route id="camel1-route">
 			<from uri="timer://foo?repeatCount=1" />
