@@ -21,15 +21,19 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.nio.ByteBuffer;
 import java.net.InetAddress;
 import java.net.MalformedURLException;
 import java.net.UnknownHostException;
+
 import com.datastax.driver.core.BoundStatement;
 import com.datastax.driver.core.DataType;
 import com.datastax.driver.core.Row;
+import com.datastax.driver.core.TupleValue;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,6 +59,7 @@ public class CqlToken {
 	private String value;
 	private DataType.Name cqlType;
 	private DataType.Name collectionType;
+	// this token may be replicated across a single statement
 	private List<Integer> positions = new ArrayList<Integer>();
 
 	/**
@@ -71,14 +76,10 @@ public class CqlToken {
 
 		// convert the given cqlType to an enumerated value
 		this.cqlType = DataType.Name.valueOf(cqlType.toUpperCase());
-		// this.cqlType = Enum.valueOf(DataType.Name.class,
-		// cqlType.toUpperCase());
 
-		// the key is used to id this token as a parameter field; i.e., a
-		// key-value field, where the value is the value of the input param that
-		// is bound to the statement. The value in key-value is not to be
-		// confused with the value of this token, which is the token's name.
-		// TODO: clear this up - too confusing!!!
+		// the key, which always equals the value propert, is used to id this
+		// token as a parameter field as opposed to a token that represents a
+		// CQL keyword. A keyword token will have its key property set to null
 		this.key = key.toLowerCase();
 		this.value = this.key;
 		addPosition(position);
@@ -88,7 +89,9 @@ public class CqlToken {
 	 * Create a parameterized token for a collection type
 	 * 
 	 * @param cqlType
+	 *            : SET, LIST, or MAP
 	 * @param collectionType
+	 *            : long, string, int, ... etc
 	 * @param key
 	 * @param position
 	 * @throws IllegalArgumentException
@@ -108,9 +111,6 @@ public class CqlToken {
 		// convert the given collection type to a CqlType
 		this.collectionType = DataType.Name.valueOf(collectionType
 				.toUpperCase());
-		// this.collectionType = Enum.valueOf(DataType.Name.class,
-		// collectionType.toUpperCase());
-
 		switch (getCollectionType()) {
 		case SET:
 		case LIST:
@@ -177,6 +177,10 @@ public class CqlToken {
 		return getCollectionType() != null;
 	}
 
+	/**
+	 * Binds an object to a BoundStatement
+	 */
+	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void bindObject(BoundStatement bs, Object obj) throws Exception {
 		LOG.trace("bindObject: entered with this type {}", obj.getClass()
 				.getName());
@@ -216,8 +220,9 @@ public class CqlToken {
 		case BLOB:
 			return ByteBuffer.wrap(value.getBytes());
 		case DECIMAL:
-		case VARINT:
 			return new BigDecimal(value);
+		case VARINT:
+			return new BigInteger(value);
 		case BOOLEAN:
 			if (value.trim().equalsIgnoreCase("true")
 					|| value.trim().equalsIgnoreCase("false")) {
@@ -257,8 +262,9 @@ public class CqlToken {
 		case BLOB:
 			return row.getBytes(colName);
 		case DECIMAL:
-		case VARINT:
 			return row.getDecimal(colName);
+		case VARINT:
+			return row.getVarint(colName);
 		case BOOLEAN:
 			return row.getBool(colName);
 		case INET:
@@ -283,6 +289,17 @@ public class CqlToken {
 			return row.getList(colName, String.class);
 		case MAP:
 			return row.getMap(colName, String.class, String.class);
+		case TUPLE:
+			// A tuple would have to be returned as a List of Objects
+			List<Object> tupleObjs = new ArrayList<Object>();
+			TupleValue tv = row.getTupleValue(colName);
+			// get a bead on the number of values in the tuple
+			int numValues = tv.getType().getComponentTypes().size();
+			// copy corresponding object to list
+			for (int i = 0; i < numValues; i++) {
+				tupleObjs.add(tv.getObject(i));
+			}
+			return tupleObjs;
 		default:
 			return row.getString(colName);
 		}
@@ -310,12 +327,19 @@ public class CqlToken {
 			}
 			break;
 		case DECIMAL:
-		case VARINT:
 			BigDecimal bd = (BigDecimal) getObjectValue(value);
 			for (Integer pos : getPositions()) {
 				LOG.trace("bindString: binding {} to position {}",
 						bd.toString(), pos);
 				bs.setDecimal(pos, bd);
+			}
+			break;
+		case VARINT:
+			BigInteger bi = (BigInteger) getObjectValue(value);
+			for (Integer pos : getPositions()) {
+				LOG.trace("bindString: binding {} to position {}",
+						bi.toString(), pos);
+				bs.setVarint(pos, bi);
 			}
 			break;
 		case BOOLEAN:
@@ -419,11 +443,17 @@ public class CqlToken {
 			}
 			return map;
 		}
-		case DECIMAL:
-		case VARINT: {
+		case DECIMAL: {
 			Map<String, BigDecimal> map = new HashMap<String, BigDecimal>();
 			for (String key : inMap.keySet()) {
 				map.put(key, new BigDecimal(inMap.get(key)));
+			}
+			return map;
+		}
+		case VARINT: {
+			Map<String, BigInteger> map = new HashMap<String, BigInteger>();
+			for (String key : inMap.keySet()) {
+				map.put(key, new BigInteger(inMap.get(key)));
 			}
 			return map;
 		}
@@ -506,11 +536,17 @@ public class CqlToken {
 			}
 			return set;
 		}
-		case DECIMAL:
-		case VARINT: {
+		case DECIMAL: {
 			Set<BigDecimal> set = new HashSet<BigDecimal>();
 			for (String val : inSet) {
 				set.add(new BigDecimal(val));
+			}
+			return set;
+		}
+		case VARINT: {
+			Set<BigInteger> set = new HashSet<BigInteger>();
+			for (String val : inSet) {
+				set.add(new BigInteger(val));
 			}
 			return set;
 		}
@@ -593,11 +629,17 @@ public class CqlToken {
 			}
 			return list;
 		}
-		case DECIMAL:
-		case VARINT: {
+		case DECIMAL: {
 			List<BigDecimal> list = new ArrayList<BigDecimal>();
 			for (String val : inList) {
 				list.add(new BigDecimal(val));
+			}
+			return list;
+		}
+		case VARINT: {
+			List<BigInteger> list = new ArrayList<BigInteger>();
+			for (String val : inList) {
+				list.add(new BigInteger(val));
 			}
 			return list;
 		}

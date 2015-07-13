@@ -47,6 +47,7 @@ import static org.metis.utils.Utils.dumpStackTrace;
 public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 		ApplicationContextAware, Processor {
 
+	// various properties
 	private static final Logger LOG = LoggerFactory.getLogger(Client.class);
 	private boolean isRunning;
 	private ClusterBean clusterBean;
@@ -144,7 +145,7 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 			LOG.warn(getBeanName()
 					+ ":unable to connect to Cassandra cluster during bean "
 					+ "initialization, msg = " + exc.getMessage());
-			// throw exc;
+			// the session may become available at some later point in time
 		}
 
 		LOG.info(getBeanName() + ": clusterBean name = "
@@ -316,7 +317,7 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 		// check to see if the exchange is transacted; if so, we'll
 		// make the call to the server within the context of a
 		// transaction
-		// TODO: needs some work
+		// TODO: needs work
 		if (exchange.isTransacted()) {
 			LOG.trace(getBeanName() + ":camelProcess: exchange is transacted");
 		}
@@ -324,6 +325,7 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 		// get the payload (if any) and transform it
 		List<Map<Object, Object>> listMap = null;
 		Object payLoad = inMsg.getBody();
+
 		if (payLoad != null) {
 			// if payload is a stream or string, then it must be in the form of
 			// a JSON object, which then needs to be transformed into a Map or
@@ -369,7 +371,8 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 						+ "List nor Map");
 			}
 			// ensure that all the Maps in the given list have the same set of
-			// keys
+			// keys. Potential quadratic running time ( O(n^2) ), but the number
+			// of keys in a Map is not expected to be that large
 			if (listMap.size() > 1) {
 				for (int i = 0; i < listMap.size(); i++) {
 					Set set1 = listMap.get(i).keySet();
@@ -391,6 +394,7 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 		// execute the Map(s) and hoist the returned List of Maps up into the
 		// Exchange's out message
 		exchange.getOut().setBody(execute(listMap, inMsg));
+		// if requested to do so, save the current paging state 
 		if (inMsg.getHeader(CASSANDRA_PAGING_STATE) != null) {
 			exchange.getOut().setHeader(CASSANDRA_PAGING_STATE,
 					inMsg.getHeader(CASSANDRA_PAGING_STATE));

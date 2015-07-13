@@ -29,7 +29,6 @@ import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.BoundStatement;
 import com.datastax.driver.core.SimpleStatement;
 import com.datastax.driver.core.Statement;
-import com.datastax.driver.core.exceptions.PagingStateException;
 import com.datastax.driver.core.policies.RetryPolicy;
 
 import org.apache.camel.Message;
@@ -44,8 +43,8 @@ import org.metis.cassandra.Client.Method;
 import static org.metis.utils.Constants.*;
 
 /**
- * Object that encapsulates or represents a CQL statement. This is expected to
- * be a singleton bean!
+ * Object that encapsulates or represents a CQL statement. This is a
+ * thread-safe/re-entrant singleton bean!
  */
 public class CqlStmnt implements InitializingBean, BeanNameAware {
 
@@ -87,9 +86,12 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 	// marks this statement as a "SELECT JSON ..." statement
 	private boolean isJsonSelect;
 
-	// a pool, of sorts, that is used to pool prepared and simple statements for
-	// each session that uses this statement
+	// A Map of bound and simple statement pools, where each pool pertains to a
+	// particular Cassandra session.
 	private Map<Session, CqlStmntPool> stmntPool = new ConcurrentHashMap<Session, CqlStmntPool>();
+
+	// governs the statement stack sizes in each CqlStmntPool
+	private int stackSize = 25;
 
 	public CqlStmnt() {
 	}
@@ -566,7 +568,7 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 		}
 
 		// first, do some light validation work
-		if (params.size() == 0 && isPrepared()) {
+		if (params.isEmpty() && isPrepared()) {
 			LOG.error(getBeanName()
 					+ ":execute: ERROR, params were not provided "
 					+ "for this prepared statement {}", getPreparedStr());
@@ -579,7 +581,7 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 		}
 
 		// make sure given params match
-		if (params.size() > 0) {
+		if (!params.isEmpty()) {
 			if (!isMatch(params.keySet())) {
 				LOG.error(getBeanName()
 						+ ":execute: ERROR, given key:value set does not "
@@ -1173,19 +1175,33 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 		this.isJsonSelect = isJsonSelect;
 	}
 
+	/**
+	 * @return the stackSize
+	 */
+	public int getStackSize() {
+		return stackSize;
+	}
+
+	/**
+	 * @param stackSize
+	 *            the stackSize to set
+	 */
+	public void setStackSize(int stackSize) {
+		this.stackSize = stackSize;
+	}
+
 	/*
 	 * Every CQLStmnt has a pool of simple and bound statements. Note that a
-	 * CQLStmnt is a thread safe singleton bean. It is concurrently accessed by
+	 * CQLStmnt is a thread safe singleton bean that is concurrently accessed by
 	 * many threads of execution. You can have multiple client beans injected
-	 * with the same CqlSmnt singleton bean and each of those Clients could
-	 * conceivable be using different Cassandra sessions. Therefore, each
-	 * CqlStmnt bean maintains a Map of these pools; one pool for each session.
-	 * We don't want to be constantly creating and destroying these Simple and
-	 * Bound statements. Instead, we'd like to reuse them!
+	 * with the same CqlSmnt singleton bean and each of those Clients will use
+	 * their own distinct Cassandra session. Therefore, each CqlStmnt bean
+	 * maintains a Map of these pools; one pool for each session. We don't want
+	 * to be constantly creating and destroying these Simple and Bound
+	 * statements. Instead, we'd like to reuse them and thus the pool.
 	 */
 	private class CqlStmntPool {
 
-		private static final int MAX_STACK_SIZE = 50;
 		private Stack<SimpleStatement> simpleStack = new Stack<SimpleStatement>();
 		private Stack<BoundStatement> boundStack = new Stack<BoundStatement>();
 		// used only if this CQL statement is a prepared statement
@@ -1235,13 +1251,13 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 			if (stmnt != null) {
 				if (stmnt instanceof BoundStatement) {
 					synchronized (boundStack) {
-						if (boundStack.size() < MAX_STACK_SIZE) {
+						if (boundStack.size() < getStackSize()) {
 							boundStack.push((BoundStatement) stmnt);
 						}
 					}
 				} else {
 					synchronized (simpleStack) {
-						if (simpleStack.size() < MAX_STACK_SIZE) {
+						if (simpleStack.size() < getStackSize()) {
 							simpleStack.push((SimpleStatement) stmnt);
 						}
 					}
