@@ -25,17 +25,16 @@ import org.junit.runners.MethodSorters;
 
 import static org.metis.utils.Constants.*;
 
-/**
- * This test will select users whose name is "tcodd". Cassandra should return 2
- * entries from the videodb that match the query.
- * 
- * @author jfernandez
- * 
- */
 // Test methods will be executed in ascending order by name
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
 public class InsertUserTest extends BaseTest {
 
+	/**
+	 * First insert the user jfernandez. Note how we're passing in a collection
+	 * of emails
+	 * 
+	 * @throws Exception
+	 */
 	@Test
 	public void testA() throws Exception {
 		String JSON = "{\"username\":\"jfernandez\", \"created_date\":\"2014-06-6 13:50:00\", "
@@ -46,7 +45,7 @@ public class InsertUserTest extends BaseTest {
 	}
 
 	/**
-	 * Ensure user jfernandez was inserted
+	 * Now ensure user jfernandez was inserted
 	 * 
 	 * @throws Exception
 	 */

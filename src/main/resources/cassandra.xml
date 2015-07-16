@@ -25,10 +25,14 @@
 				<ref bean="select2" />
 				<ref bean="select3" />
 				<ref bean="insert1" />
+				<ref bean="deleteUser" />
 			</list>
 		</property>
 		<property name="keyspace" value="videodb" />
 		<property name="clusterBean" ref="cluster1" />
+		<property name="defaultMethod">
+			<util:constant static-field="org.metis.cassandra.Client.Method.SELECT" />
+		</property>
 	</bean>
 
 	<!-- A list of CQL statements used for supporting the user Client -->
@@ -52,6 +56,10 @@
 					lastname, password) values (`text:username`,
 					`timestamp:created_date`, `list:text:email`,
 					`text:firstname`,`text:lastname`,`text:password`)" />
+	</bean>
+	<bean id="deleteUser" class="org.metis.cassandra.CqlStmnt">
+		<property name="statement"
+			value="delete from users where username = `text:user`" />
 	</bean>
 
 
@@ -93,8 +101,7 @@
 					`timeuuid:event_timestamp`,
 					`text:event`, `bigint:video_timestamp`)" />
 	</bean>
-
-
+		
 	<!-- The bean used for connecting to a Cassandra cluster -->
 	<bean id="cluster1" class="org.metis.cassandra.ClusterBean">
 		<property name="clusterName" value="myCluster" />

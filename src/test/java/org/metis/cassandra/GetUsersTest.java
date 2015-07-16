@@ -30,8 +30,10 @@ import org.junit.runners.MethodSorters;
 /**
  * This test will select users whose name is "tcodd". Cassandra should return 2
  * entries from the videodb that match the query. Note that a Cassandra request
- * method is not being supplied, which means that the route will default to
- * SELECT.
+ * method is not being supplied, which means that the route will end up using
+ * the Client bean's default method, which in this case must be SELECT.
+ * 
+ * The test will by default look for and load "cassandra.xml"
  */
 // Test methods will be executed in ascending order by name
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
@@ -68,7 +70,7 @@ public class GetUsersTest extends BaseTest {
 
 	}
 
-	// test with list of maps
+	// test with list of maps, but only with a list size of 1
 	@Test
 	public void testCSendMessage() throws Exception {
 		getMockEndpoint("mock:result")
@@ -123,8 +125,8 @@ public class GetUsersTest extends BaseTest {
 			Object payLoad = exchange.getIn().getBody();
 			if (payLoad == null || !(payLoad instanceof List)) {
 				return false;
-			} 
-			
+			}
+
 			List<Object> list = (List) payLoad;
 			if (list.size() != 2) {
 				return false;

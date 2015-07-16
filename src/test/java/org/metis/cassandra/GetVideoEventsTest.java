@@ -13,8 +13,11 @@
  */
 package org.metis.cassandra;
 
+import static org.metis.utils.Constants.CASSANDRA_METHOD;
+
 import java.util.List;
 import java.util.Map;
+
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.Exchange;
 import org.apache.camel.Predicate;
@@ -22,18 +25,20 @@ import org.junit.Test;
 import org.junit.FixMethodOrder;
 import org.junit.runners.MethodSorters;
 
-
 // Test methods will be executed in ascending order by name
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
 public class GetVideoEventsTest extends BaseTest {
 
 	@Test
 	public void testASendMessage() throws Exception {
-		Map map = null;
+		Map<String, String> map = null;
 		getMockEndpoint("mock:result")
 				.expectedMessagesMatches(new TestResult());
 		// feed the route, which starts the test; note that there is no payload
-		template.requestBody("direct:start", map);		
+		// in this case, we're specifying the method, since the video client has
+		// not been given a default method
+		template.requestBodyAndHeader("direct:start", map, CASSANDRA_METHOD,
+				"select");
 		assertMockEndpointsSatisfied();
 	}
 
