@@ -27,27 +27,19 @@ import org.junit.Test;
 import org.junit.FixMethodOrder;
 import org.junit.runners.MethodSorters;
 
-/**
- * This test will select users whose name is "tcodd". Cassandra should return 2
- * entries from the videodb that match the query. Note that a Cassandra request
- * method is not being supplied, which means that the route will end up using
- * the Client bean's default method, which in this case must be SELECT.
- * 
- * The test will by default look for and load "cassandra.xml"
- */
 // Test methods will be executed in ascending order by name
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
-public class GetUsersTest extends BaseTest {
+public class PagingTest extends BaseTest {
 
 	// test with JSON as an input
 	@Test
 	public void testASendMessage() throws Exception {
 		// this is what we send to the CqlEndpoint
-		String JSON = "{\"username\":\"tcodd\"}";
+		String JSON = "{\"tag\":\"cassandra\"}";
 		// tell the mock end point that we expect to get back a List of Maps
-		// having 2 Maps, each with only one entry whose value is a String.
-		getMockEndpoint("mock:result")
-				.expectedMessagesMatches(new TestResult());
+		// having 101 Maps.
+		getMockEndpoint("mock:result").expectedMessagesMatches(
+				new ATestResult());
 		// feed the route, which starts the test
 		template.requestBody("direct:start", JSON);
 		// ask the mock endpoint if it received the expected body and
@@ -55,54 +47,18 @@ public class GetUsersTest extends BaseTest {
 		assertMockEndpointsSatisfied();
 	}
 
-	// test with single map
+	// test with single map - should return the fetchSize specified in the
+	// cassandra.xml file
 	@Test
 	public void testBSendMessage() throws Exception {
-		getMockEndpoint("mock:result")
-				.expectedMessagesMatches(new TestResult());
-		// send a Map
-		Map<String, String> map = new HashMap<String, String>();
-		map.put("username", "tcodd");
-		getMockEndpoint("mock:result")
-				.expectedMessagesMatches(new TestResult());
+		Map<String, String> map = null;
+		getMockEndpoint("mock:result").expectedMessagesMatches(
+				new BTestResult());
 		template.requestBody("direct:start", map);
 		assertMockEndpointsSatisfied();
-
 	}
 
-	// test with list of maps, but only with a list size of 1
-	@Test
-	public void testCSendMessage() throws Exception {
-		getMockEndpoint("mock:result")
-				.expectedMessagesMatches(new TestResult());
-		// send a Map
-		List<Map<String, String>> list = new ArrayList<Map<String, String>>();
-		Map<String, String> map = new HashMap<String, String>();
-		map.put("username", "tcodd");
-		list.add(map);
-		getMockEndpoint("mock:result")
-				.expectedMessagesMatches(new TestResult());
-		template.requestBody("direct:start", list);
-		assertMockEndpointsSatisfied();
-
-	}
-
-	// test with stream
-	@Test
-	public void testDSendMessage() throws Exception {
-		String JSON = "{\"username\":\"tcodd\"}";
-		getMockEndpoint("mock:result")
-				.expectedMessagesMatches(new TestResult());
-		// send a Stream
-		InputStream is = new ByteArrayInputStream(JSON.getBytes());
-		template.requestBody("direct:start", is);
-		assertMockEndpointsSatisfied();
-
-		// stop the context
-		context.stop();
-	}
-
-	@Override
+	// @Override
 	// this is the route used by this test case.
 	protected RouteBuilder createRouteBuilder() {
 		return new RouteBuilder() {
@@ -111,24 +67,25 @@ public class GetUsersTest extends BaseTest {
 				// sent to Cassandra component, then the reply is sent
 				// on to the mock endpoint. The mock endpoint will then validate
 				// it via the TestResult predicate.
-				from("direct:start").to("cql:user").to("mock:result");
+				from("direct:start").to("cql:tag").to("mock:result");
 			}
 		};
 	}
 
 	/**
-	 * This predicate ensures that the payload returned is as expected.
+	 * This predicate ensures that the payload returned is as expected. It
+	 * expects one Map with a key:value pair of count:101
 	 */
-	private class TestResult implements Predicate {
+	protected class ATestResult implements Predicate {
 
 		public boolean matches(Exchange exchange) {
+
 			Object payLoad = exchange.getIn().getBody();
 			if (payLoad == null || !(payLoad instanceof List)) {
 				return false;
 			}
-
 			List<Object> list = (List) payLoad;
-			if (list.size() != 2) {
+			if (list.size() != 1) {
 				return false;
 			}
 			payLoad = list.get(0);
@@ -139,14 +96,47 @@ public class GetUsersTest extends BaseTest {
 			if (map.size() != 1) {
 				return false;
 			}
-			Object value = map.get("username");
+
+			Object value = map.get("count");
+			if (!(value instanceof Long)) {
+				return false;
+			}
+			if (((Long) value) != 3) {
+				return false;
+			}
+			return true;
+		}
+	}
+
+	protected class BTestResult implements Predicate {
+
+		public boolean matches(Exchange exchange) {
+
+			Object payLoad = exchange.getIn().getBody();
+			if (payLoad == null || !(payLoad instanceof List)) {
+				return false;
+			}
+
+			List<Object> list = (List) payLoad;
+			if (list.size() != 5) {
+				return false;
+			}
+
+			payLoad = list.get(0);
+			if (!(payLoad instanceof Map)) {
+				return false;
+			}
+
+			Map map = (Map) payLoad;
+			if (map.size() != 3) {
+				return false;
+			}
+
+			Object value = map.get("tag");
 			if (!(value instanceof String)) {
 				return false;
 			}
 
-			if (!"tcodd".equals(value)) {
-				return false;
-			}
 			return true;
 		}
 	}

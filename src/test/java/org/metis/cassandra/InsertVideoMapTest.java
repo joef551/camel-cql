@@ -129,7 +129,7 @@ public class InsertVideoMapTest extends BaseTest {
 	 * This predicate ensures that the payload returned for TestB is as
 	 * expected.
 	 */
-	protected class TestResult implements Predicate {
+	private class TestResult implements Predicate {
 
 		public boolean matches(Exchange exchange) {
 
@@ -198,7 +198,7 @@ public class InsertVideoMapTest extends BaseTest {
 	 * This predicate ensures that the payload returned for TestD is as
 	 * expected.
 	 */
-	protected class TestResult2 implements Predicate {
+	private class TestResult2 implements Predicate {
 		public boolean matches(Exchange exchange) {
 			Object payLoad = exchange.getIn().getBody();
 			if (payLoad != null) {

@@ -14,6 +14,7 @@
 		<property name="mappings">
 			<value>
 				/user=user
+				/tag=tag
 				/video*=videoevent
 			</value>
 		</property>
@@ -127,6 +128,32 @@
 			value="delete from videos where videoid =
 					`uuid:videoid`" />
 	</bean>
+
+
+	<bean id="tag" class="org.metis.cassandra.Client">
+		<property name="cqls">
+			<list>
+				<ref bean="tag1" />
+				<ref bean="tag2" />
+			</list>
+		</property>
+		<property name="keyspace" value="videodb" />
+		<property name="clusterBean" ref="cluster1" />
+		<property name="defaultMethod">
+			<util:constant static-field="org.metis.cassandra.Client.Method.SELECT" />
+		</property>
+	</bean>
+	<bean id="tag1" class="org.metis.cassandra.CqlStmnt">
+		<property name="statement"
+			value="select count(*) from tag_index where tag = `text:tag`" />
+	</bean>
+	<bean id="tag2" class="org.metis.cassandra.CqlStmnt">
+		<property name="statement" value="select * from tag_index" />
+		<property name="pagingState" value="true" />
+		<property name="fetchSize" value="5" />
+	</bean>
+
+
 
 	<bean id="cluster1" class="org.metis.cassandra.ClusterBean">
 		<property name="clusterName" value="myCluster" />

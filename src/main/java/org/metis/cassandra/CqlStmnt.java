@@ -541,7 +541,7 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 
 		int fetchSize = (getFetchSize() >= 0) ? getFetchSize() : session
 				.getCluster().getConfiguration().getQueryOptions()
-				.getFetchSize();
+				.getFetchSize();		
 
 		RetryPolicy retryPolicy = (getRetryPolicy() != null) ? getRetryPolicy()
 				: session.getCluster().getConfiguration().getPolicies()

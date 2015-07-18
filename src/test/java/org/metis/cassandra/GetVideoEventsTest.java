@@ -57,7 +57,7 @@ public class GetVideoEventsTest extends BaseTest {
 	/**
 	 * This predicate ensures that the payload returned is as expected.
 	 */
-	protected class TestResult implements Predicate {
+	private class TestResult implements Predicate {
 
 		public boolean matches(Exchange exchange) {
 			Object payLoad = exchange.getIn().getBody();

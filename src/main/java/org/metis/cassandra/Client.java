@@ -394,7 +394,7 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 		// execute the Map(s) and hoist the returned List of Maps up into the
 		// Exchange's out message
 		exchange.getOut().setBody(execute(listMap, inMsg));
-		// if requested to do so, save the current paging state 
+		// if requested to do so, save the current paging state
 		if (inMsg.getHeader(CASSANDRA_PAGING_STATE) != null) {
 			exchange.getOut().setHeader(CASSANDRA_PAGING_STATE,
 					inMsg.getHeader(CASSANDRA_PAGING_STATE));
@@ -481,6 +481,11 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 					+ "Map for a SELECT statement, this is not allowed");
 		}
 
+		// determine the page size
+		int fetchSize = (cqlStmnt.getFetchSize() >= 0) ? cqlStmnt
+				.getFetchSize() : getSession().getCluster().getConfiguration()
+				.getQueryOptions().getFetchSize();
+
 		// iterate through the given Maps (if any) and execute their
 		// corresponding cql statement(s)
 		try {
@@ -493,11 +498,15 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 				}
 			} // for (Map map : listMap)
 
-			LOG.trace(getBeanName()
-					+ ":execute: successfully executed statement(s)");
-			LOG.trace(getBeanName()
-					+ ":execute: received this many result sets {}",
-					resultSets.size());
+			if (LOG.isDebugEnabled()) {
+				LOG.debug(getBeanName()
+						+ ":execute: successfully executed statement(s)");
+				LOG.debug(getBeanName()
+						+ ":execute: received this many result sets {}",
+						resultSets.size());
+				LOG.debug(getBeanName() + ":execute: using this fetchSize {}",
+						fetchSize);
+			}
 
 			// if no result sets were returned, then we're done!
 			if (resultSets.isEmpty()) {
@@ -505,21 +514,23 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 			}
 
 			List<Map<String, Object>> listOutMaps = new ArrayList<Map<String, Object>>();
-			Row row = null;
-			String pagingState = null;
+
 			// iterate through the returned result sets
 			for (ResultSet resultSet : resultSets) {
+				Row row = null;
 				// grab the metadata for the result set
 				ColumnDefinitions cDefs = resultSet.getColumnDefinitions();
 				// transfer each row of the result set to a Map and place all
 				// the maps in a List
-				while ((row = resultSet.one()) != null) {
+				int rowCount = 0;
+				while ((row = resultSet.one()) != null && rowCount < fetchSize) {
 					Map<String, Object> map = new HashMap<String, Object>();
 					for (Definition cDef : cDefs.asList()) {
 						map.put(cDef.getName(), CqlToken.getObjectFromRow(row,
 								cDef.getName(), cDef.getType().getName()));
 					}
 					listOutMaps.add(map);
+					rowCount++;
 				}
 			}
 			// return the List of Maps up into the Exchange's out message
@@ -534,6 +545,7 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 					+ "Exception while executing CQL statement " + "message: "
 					+ exc.toString());
 			LOG.error(getBeanName() + ": exception stack trace follows:");
+			exc.printStackTrace();
 			dumpStackTrace(exc.getStackTrace());
 			if (exc.getCause() != null) {
 				LOG.error(getBeanName() + ": Caused by "
