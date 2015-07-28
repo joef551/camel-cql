@@ -14,6 +14,18 @@ CREATE TABLE users (
    PRIMARY KEY (username)
 );
 
+// used for testing the handling of tuples
+CREATE TABLE customer (
+   username varchar,
+   firstname varchar,
+   lastname varchar,
+   email list<varchar>,
+   password varchar,
+   created_date timestamp,
+   location frozen<tuple<float,float>>,
+   PRIMARY KEY (username)
+);
+
 //  Entity table that will store many videos for a unique user
 CREATE TABLE videos (
    videoid uuid,

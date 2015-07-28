@@ -19,9 +19,14 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+
+import static org.junit.Assert.fail;
+import static org.metis.utils.Constants.CASSANDRA_PAGING_STATE;
 
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.Exchange;
+import org.apache.camel.Message;
 import org.apache.camel.Predicate;
 import org.junit.Test;
 import org.junit.FixMethodOrder;
@@ -31,13 +36,16 @@ import org.junit.runners.MethodSorters;
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
 public class PagingTest extends BaseTest {
 
+	private static String globalPagingState;
+	private static Map globalMap;
+
 	// test with JSON as an input
 	@Test
 	public void testASendMessage() throws Exception {
 		// this is what we send to the CqlEndpoint
 		String JSON = "{\"tag\":\"cassandra\"}";
-		// tell the mock end point that we expect to get back a List of Maps
-		// having 101 Maps.
+		// tell the mock end point that we expect to get back one Map whose only
+		// key:value pair is count:3.
 		getMockEndpoint("mock:result").expectedMessagesMatches(
 				new ATestResult());
 		// feed the route, which starts the test
@@ -47,14 +55,27 @@ public class PagingTest extends BaseTest {
 		assertMockEndpointsSatisfied();
 	}
 
-	// test with single map - should return the fetchSize specified in the
-	// cassandra.xml file
+	// should return a list of maps where the number of maps matches the
+	// fetchSize specified in the cassandra.xml file
 	@Test
 	public void testBSendMessage() throws Exception {
 		Map<String, String> map = null;
 		getMockEndpoint("mock:result").expectedMessagesMatches(
 				new BTestResult());
-		template.requestBody("direct:start", map);
+		Object result = template.requestBody("direct:start", map);
+		assertMockEndpointsSatisfied();
+	}
+
+	@Test
+	public void testCSendMessage() throws Exception {
+		if (globalPagingState == null) {
+			fail("paging state was not set");
+		}
+		Map<String, String> map = null;
+		getMockEndpoint("mock:result").expectedMessagesMatches(
+				new BTestResult());
+		Object result = template.requestBodyAndHeader("direct:start", map,
+				CASSANDRA_PAGING_STATE, globalPagingState);
 		assertMockEndpointsSatisfied();
 	}
 
@@ -76,7 +97,7 @@ public class PagingTest extends BaseTest {
 	 * This predicate ensures that the payload returned is as expected. It
 	 * expects one Map with a key:value pair of count:101
 	 */
-	protected class ATestResult implements Predicate {
+	private class ATestResult implements Predicate {
 
 		public boolean matches(Exchange exchange) {
 
@@ -108,11 +129,30 @@ public class PagingTest extends BaseTest {
 		}
 	}
 
-	protected class BTestResult implements Predicate {
+	private class BTestResult implements Predicate {
 
 		public boolean matches(Exchange exchange) {
 
-			Object payLoad = exchange.getIn().getBody();
+			Message message = exchange.getIn();
+
+			if (message == null) {
+				return false;
+			}
+
+			// get the current paging state, which must always be returned for
+			// this test
+			Object pagingState = message.getHeader(CASSANDRA_PAGING_STATE);
+
+			if (pagingState == null || !(pagingState instanceof String)) {
+				return false;
+			} else if (((String) pagingState).isEmpty()) {
+				return false;
+			}
+
+			// tuck the paging state away in the global paging state
+			globalPagingState = (String) pagingState;
+
+			Object payLoad = message.getBody();
 			if (payLoad == null || !(payLoad instanceof List)) {
 				return false;
 			}
@@ -127,16 +167,27 @@ public class PagingTest extends BaseTest {
 				return false;
 			}
 
+			// the tag index table has three columns
 			Map map = (Map) payLoad;
 			if (map.size() != 3) {
 				return false;
 			}
 
-			Object value = map.get("tag");
-			if (!(value instanceof String)) {
+			Object value = map.get("videoid");
+			if (!(value instanceof UUID)) {
 				return false;
 			}
 
+			// if this is not the first paging state, then do a minor comparison
+			// with the previous contents
+			if (globalMap != null) {
+				Object uuid = globalMap.get("videoid");
+				if (((UUID) uuid).compareTo((UUID) value) == 0) {
+					return false;
+				}
+			} else {
+				globalMap = map;
+			}
 			return true;
 		}
 	}

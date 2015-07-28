@@ -32,8 +32,10 @@ import java.net.UnknownHostException;
 import com.datastax.driver.core.BoundStatement;
 import com.datastax.driver.core.DataType;
 import com.datastax.driver.core.Row;
+import com.datastax.driver.core.TupleType;
 import com.datastax.driver.core.TupleValue;
 
+import org.metis.utils.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -77,6 +79,12 @@ public class CqlToken {
 		// convert the given cqlType to an enumerated value
 		this.cqlType = DataType.Name.valueOf(cqlType.toUpperCase());
 
+		// a tuple is a special case of a collection in that arbitrary types can
+		// be added to a tuple
+		if (this.cqlType == DataType.Name.TUPLE) {
+			this.collectionType = this.cqlType;
+		}
+
 		// the key, which always equals the value propert, is used to id this
 		// token as a parameter field as opposed to a token that represents a
 		// CQL keyword. A keyword token will have its key property set to null
@@ -86,7 +94,9 @@ public class CqlToken {
 	}
 
 	/**
-	 * Create a parameterized token for a collection type
+	 * Create a parameterized token for a collection type. This is only called
+	 * when creating a collection type like `list:text:email`, which is
+	 * <collectionType>:<cqlType>:<key>
 	 * 
 	 * @param cqlType
 	 *            : SET, LIST, or MAP
@@ -108,13 +118,15 @@ public class CqlToken {
 		default:
 			throw new IllegalArgumentException("invalid CqlType for collection");
 		}
-		// convert the given collection type to a CqlType
+		// convert the given collection type to a CqlType.
 		this.collectionType = DataType.Name.valueOf(collectionType
 				.toUpperCase());
 		switch (getCollectionType()) {
 		case SET:
 		case LIST:
 		case MAP:
+			// You can't define something like this: `list:list:email` or
+			// `list:map:email`
 			throw new IllegalArgumentException(
 					"collection type for a collection cannot be another collection");
 		default:
@@ -189,7 +201,11 @@ public class CqlToken {
 		} else if (obj instanceof Map) {
 			bindMap(bs, (Map) obj);
 		} else if (obj instanceof List) {
-			bindList(bs, (List) obj);
+			if (getCollectionType() == DataType.Name.TUPLE) {
+				bindTuple(bs, (List) obj);
+			} else {
+				bindList(bs, (List) obj);
+			}
 		} else if (obj instanceof Set) {
 			bindSet(bs, (Set) obj);
 		} else {
@@ -295,7 +311,7 @@ public class CqlToken {
 			TupleValue tv = row.getTupleValue(colName);
 			// get a bead on the number of values in the tuple
 			int numValues = tv.getType().getComponentTypes().size();
-			// copy corresponding object to list
+			// copy corresponding objects to list
 			for (int i = 0; i < numValues; i++) {
 				tupleObjs.add(tv.getObject(i));
 			}
@@ -760,6 +776,27 @@ public class CqlToken {
 		List<?> list = getList(inList);
 		for (Integer pos : getPositions())
 			bs.setList(pos, list);
+	}
+
+	/**
+	 * Bind Tuple to BoundStatement.
+	 * 
+	 * @param bs
+	 * @param inList
+	 * @throws Exception
+	 */
+	public void bindTuple(BoundStatement bs, List<Object> inList)
+			throws Exception {
+		if (!isCollection()) {
+			throw new Exception(
+					"attempting to bind non-collection as collection");
+		}
+		LOG.trace("bindTuple: entered with {}", inList.toString());
+		TupleType tupleType = Utils.getTupleType(inList);
+		TupleValue tv = tupleType.newValue(inList.toArray(new Object[inList
+				.size()]));
+		for (Integer pos : getPositions())
+			bs.setTupleValue(pos, tv);
 	}
 
 	public String toString() {

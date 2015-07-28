@@ -14,22 +14,31 @@
 package org.metis.utils;
 
 import java.security.MessageDigest;
+import java.sql.Timestamp;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Set;
+import java.util.UUID;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.net.InetAddress;
 import java.net.URLDecoder;
+import java.nio.ByteBuffer;
 import java.io.UnsupportedEncodingException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.datastax.driver.core.DataType;
+import com.datastax.driver.core.TupleType;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
@@ -242,7 +251,6 @@ public class Utils {
 		return sb.toString();
 	}
 
-	
 	/**
 	 * Used for dumping the stack trace
 	 * 
@@ -259,7 +267,7 @@ public class Utils {
 		if (elements.length > i) {
 			LOG.error("... " + (elements.length - i) + " more");
 		}
-	}	
+	}
 
 	/**
 	 * Given a query string, places the name value pairs in a HashMap
@@ -407,6 +415,47 @@ public class Utils {
 			}
 		}
 		return outList;
+	}
+
+	/**
+	 * Creates a Cassandra TupleType based on the given list of Objects. The
+	 * TupleType can then be used to create a TupleValue.
+	 * 
+	 * @param values
+	 * @return
+	 */
+	public static TupleType getTupleType(List<Object> values)
+			throws IllegalArgumentException {
+		List<DataType> dataTypes = new ArrayList<DataType>();
+		for (Object value : values) {
+			if (value instanceof ByteBuffer) {
+				dataTypes.add(DataType.blob());
+			} else if (value instanceof BigDecimal) {
+				dataTypes.add(DataType.decimal());
+			} else if (value instanceof BigInteger) {
+				dataTypes.add(DataType.varint());
+			} else if (value instanceof Boolean) {
+				dataTypes.add(DataType.cboolean());
+			} else if (value instanceof InetAddress) {
+				dataTypes.add(DataType.inet());
+			} else if (value instanceof Integer) {
+				dataTypes.add(DataType.cint());
+			} else if (value instanceof Long) {
+				dataTypes.add(DataType.counter());
+			} else if (value instanceof Float) {
+				dataTypes.add(DataType.cfloat());
+			} else if (value instanceof Double) {
+				dataTypes.add(DataType.cdouble());
+			} else if (value instanceof Date) {
+				dataTypes.add(DataType.timestamp());
+			} else if (value instanceof String) {
+				dataTypes.add(DataType.text());
+			} else {
+				throw new IllegalArgumentException("unknown data type of "
+						+ value.getClass().getCanonicalName());
+			}
+		}
+		return TupleType.of(dataTypes.toArray(new DataType[dataTypes.size()]));
 	}
 
 	public static void main(String[] args) throws Exception {

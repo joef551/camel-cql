@@ -190,6 +190,7 @@ The first subfield (from right-to-left) of a parameterized field is required, an
 
 1. **\`list:text:email\`** is a parameterized field that is matched up to an input parameter whose key name is 'email' and whose value is a list of ascii text strings. 
 2. **\`text:username\`** is a parameterized field that is matched up to an input parameter whose key name is 'username' and whose value is an ascii text string. 
+3. **\`tuple:userinfo\`** is a parameterized field that is matched up to an input parameter whose key name is 'userinfo' and whose value is a tuple. A Cassandra [tuple](http://docs.datastax.com/en/developer/java-driver/2.1/java-driver/reference/tupleTypes.html) is passed in as a List of arbitrary objects. That list is used to create a Cassandra TupleType, from which a corresponding TupleValue is created and bound to the target prepared statement.    
 
 Note from [1] about using collections. <i>"Use collections, such as Set, List or Map, when you want to store or denormalize a small amount of data. Values of items in collections are limited to 64K. Other limitations also apply. Collections work well for storing data such as the phone numbers of a user and labels applied to an email. If the data you need to store has unbounded growth potential, such as all the messages sent by a user or events registered by a sensor, do not use collections. Instead, use a table having a compound primary key and store data in the clustering columns".</i>
 

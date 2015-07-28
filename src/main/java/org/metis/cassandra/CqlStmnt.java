@@ -619,7 +619,7 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 			if (isPagingState() && isSelect()) {
 				String pState = (String) inMsg
 						.getHeader(CASSANDRA_PAGING_STATE);
-				LOG.trace(getBeanName()
+				LOG.debug(getBeanName()
 						+ ":execute: paging state retrieved = {}", pState);
 				if (pState != null) {
 					stmnt.setPagingState(PagingState.fromString(pState));
