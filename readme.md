@@ -132,7 +132,13 @@ The **keyspace** property is used to specify the name of the keyspace, within a 
 
 <u>clusterBean</u>
 
-The **clusterBean** property references a [ClusterBean](#clusterbean) that is used to connect to a Cassandra cluster. 
+The **clusterBean** property references a [ClusterBean](#clusterbean) that is used to connect to a Cassandra cluster. If a **clusterBean** property is not specified and there is only one ClusterBean defined in the application context, the client bean will self-inject itself with that one ClusterBean. Thus, the above client bean definition can be further simplified as follows:
+
+```xml
+<bean id="user" class="org.metis.cassandra.Client"> 
+ <property name="keyspace" value="videodb" />
+</bean>
+``` 
 
 <u>defaultMethod</u>
 

@@ -31,6 +31,15 @@
 		<property name="clusterBean" ref="cluster1" />
 	</bean>
 
+	<!-- A Client bean called user2 that auto-injects the CQL statement and 
+		the cluster bean. -->
+	<bean id="user2" class="org.metis.cassandra.Client">
+		<property name="keyspace" value="videodb" />
+		<property name="defaultMethod">
+			<util:constant static-field="org.metis.cassandra.Client.Method.SELECT" />
+		</property>		
+	</bean>
+
 	<!-- A list of CQL statements used for supporting the user Client -->
 
 	<bean id="insert1" class="org.metis.cassandra.CqlStmnt">

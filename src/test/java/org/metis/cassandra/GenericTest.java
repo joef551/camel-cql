@@ -175,7 +175,7 @@ public class GenericTest {
 			assertTrue(cqlComp.getComponentProfile() != null);
 			assertTrue(cqlComp.getClients() != null);
 			assertTrue(cqlComp.getClients().isEmpty() == false);
-			assertTrue(cqlComp.getClients().size() == 1);
+			assertTrue(cqlComp.getClients().size() == 2);
 			assertTrue(cqlComp.getClients().get("user") != null);
 			assertTrue(cqlComp.getClients().get("user").getDefaultMethod() == Method.INSERT);
 			assertTrue(cqlComp.getClients().get("user").getCqlStmnts4Select()
@@ -194,6 +194,8 @@ public class GenericTest {
 			assertTrue(cqlStmnt.isPagingState() == true);
 			assertTrue(cqlStmnt.getFetchSize() == 101);
 			assertTrue(cqlStmnt.getDefaultTimestamp() == 123456789);
+			assertTrue(cqlComp.getClients().get("user2") != null);
+			assertTrue(cqlComp.getClients().get("user2").getDefaultMethod() == Method.SELECT);
 			camelContext.stop();
 
 		} else {

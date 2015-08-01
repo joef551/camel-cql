@@ -103,9 +103,36 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 	public void afterPropertiesSet() throws Exception {
 
 		// the client must be wired to a ClusterBean, which is used for
-		// accessing a Cassandra cluster
+		// accessing a Cassandra cluster. If the Client is not wired to a
+		// ClusterBean, then look for one in the application context
 		if (getClusterBean() == null) {
-			throw new Exception("client is not wired to a ClusterBean");
+
+			LOG.debug(getBeanName()
+					+ ":Cluster bean not injected, looking for one in context");
+
+			// look for a cluster bean
+			Map<String, ClusterBean> clusterBeans = getApplicationContext()
+					.getBeansOfType(ClusterBean.class);
+
+			// if there are none, throw exception
+			if (clusterBeans == null || clusterBeans.size() == 0) {
+				throw new Exception(getBeanName()
+						+ " is not wired to a ClusterBean and "
+						+ "one could not be found in the "
+						+ "application context");
+			}
+
+			// if there are too many to choose from, throw exception
+			if (clusterBeans.size() > 1) {
+				throw new Exception(getBeanName()
+						+ " is not wired to a ClusterBean and there are more "
+						+ "than one to choose from in the application context");
+			}
+
+			// set the cluster bean to the one and only found in the application
+			// context
+			setClusterBean(clusterBeans.values().toArray(new ClusterBean[1])[0]);
+
 		}
 
 		// the client must pertain to a Cassandra keyspace
