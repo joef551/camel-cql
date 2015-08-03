@@ -117,7 +117,7 @@ The **cqls** property is used for injecting the client bean with a set of [CQL s
 </bean>
 ```
 
-If a ***cqls*** property is not specified, the client bean will auto-inject all CQL statements that it finds in its application context (bean factory). So the above client bean definition can be simplified as follows: 
+If a ***cqls*** property is not specified, the client bean will self-inject all CQL statements that it finds in its application context (bean factory). So the above client bean definition can be simplified as follows: 
 
 ```xml
 <bean id="user" class="org.metis.cassandra.Client"> 

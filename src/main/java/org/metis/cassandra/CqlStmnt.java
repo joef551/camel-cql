@@ -541,7 +541,7 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 
 		int fetchSize = (getFetchSize() >= 0) ? getFetchSize() : session
 				.getCluster().getConfiguration().getQueryOptions()
-				.getFetchSize();		
+				.getFetchSize();
 
 		RetryPolicy retryPolicy = (getRetryPolicy() != null) ? getRetryPolicy()
 				: session.getCluster().getConfiguration().getPolicies()
@@ -683,7 +683,11 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 		} catch (Exception exc) {
 			LOG.error(getBeanName() + ":execute: caught this exception {}", exc
 					.getClass().getName());
-			Utils.dumpStackTrace(exc.getStackTrace());
+			//Utils.dumpStackTrace(exc.getStackTrace());
+			//if (exc.getCause() != null) {
+			//	Utils.dumpStackTrace(exc.getCause().getStackTrace());
+			//}
+			exc.printStackTrace();
 		}
 		cqlStmntPool.returnStatement(stmnt);
 		return resultSet;

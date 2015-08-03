@@ -123,18 +123,21 @@ public class GetUsersTest extends BaseTest {
 
 		public boolean matches(Exchange exchange) {
 			Object payLoad = exchange.getIn().getBody();
+
 			if (payLoad == null || !(payLoad instanceof List)) {
 				return false;
 			}
 
 			List<Object> list = (List) payLoad;
-			if (list.size() != 2) {
+			if (list.size() != 1) {
 				return false;
 			}
+
 			payLoad = list.get(0);
 			if (!(payLoad instanceof Map)) {
 				return false;
 			}
+
 			Map map = (Map) payLoad;
 			if (map.size() != 1) {
 				return false;

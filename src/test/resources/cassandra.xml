@@ -14,6 +14,7 @@
 		<property name="mappings">
 			<value>
 				/user=user
+				/customer=customer
 				/tag=tag
 				/video*=videoevent
 			</value>
@@ -45,7 +46,7 @@
 	</bean>
 	<bean id="select2" class="org.metis.cassandra.CqlStmnt">
 		<property name="statement"
-			value="select username from username_video_index where username =
+			value="select username from users where username =
 					`text:username`" />
 	</bean>
 	<bean id="select3" class="org.metis.cassandra.CqlStmnt">
@@ -153,7 +154,42 @@
 		<property name="fetchSize" value="5" />
 	</bean>
 
+	<!-- A Client bean called customer used for testing tuples -->
+	<bean id="customer" class="org.metis.cassandra.Client">
+		<property name="cqls">
+			<list>
+				<ref bean="insertCustomer" />
+				<ref bean="deleteCustomer" />
+				<ref bean="selectCustomer" />
+			</list>
+		</property>
+		<property name="defaultMethod">
+			<util:constant static-field="org.metis.cassandra.Client.Method.SELECT" />
+		</property>
+		<property name="keyspace" value="videodb" />
+		<property name="clusterBean" ref="cluster1" />
+	</bean>
 
+	<bean id="insertCustomer" class="org.metis.cassandra.CqlStmnt">
+		<property name="statement"
+			value="insert into customer (username, firstname,
+					lastname, email, password, created_date,
+					location) values (`text:username`,
+					`text:firstname`, `text:lastname`,
+					`list:text:email`,	`text:password`, 
+					`timestamp:created_date`, 
+					`tuple:location`)" />
+	</bean>
+
+	<bean id="deleteCustomer" class="org.metis.cassandra.CqlStmnt">
+		<property name="statement"
+			value="delete from customer where username = `text:username`" />
+	</bean>
+
+	<bean id="selectCustomer" class="org.metis.cassandra.CqlStmnt">
+		<property name="statement"
+			value="select * from customer where username = `text:username`" />
+	</bean>
 
 	<bean id="cluster1" class="org.metis.cassandra.ClusterBean">
 		<property name="clusterName" value="myCluster" />

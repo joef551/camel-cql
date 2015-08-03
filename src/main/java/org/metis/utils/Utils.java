@@ -14,7 +14,6 @@
 package org.metis.utils;
 
 import java.security.MessageDigest;
-import java.sql.Timestamp;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -22,7 +21,6 @@ import java.util.Map;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Set;
-import java.util.UUID;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.BufferedReader;
@@ -256,17 +254,18 @@ public class Utils {
 	 * 
 	 * @param elements
 	 */
-	public static void dumpStackTrace(StackTraceElement[] elements) {
-		if (elements == null) {
+	public static void dumpStackTrace(StackTraceElement[] elements) {		
+		
+		if (elements == null || elements.length == 0) {			
 			return;
+		}		
+		//int i = 0;
+		for (int i = 0; i < elements.length; i++) {
+			LOG.error(elements[i].toString());			
 		}
-		int i = 0;
-		for (; i < 10; i++) {
-			LOG.error("at " + elements[i].toString());
-		}
-		if (elements.length > i) {
-			LOG.error("... " + (elements.length - i) + " more");
-		}
+		//if (elements.length > i) {
+		//	LOG.error("... " + (elements.length - i) + " more");
+		//}
 	}
 
 	/**
@@ -428,6 +427,7 @@ public class Utils {
 			throws IllegalArgumentException {
 		List<DataType> dataTypes = new ArrayList<DataType>();
 		for (Object value : values) {
+			LOG.trace("getTupleType: Object type = " + value.getClass().getCanonicalName());
 			if (value instanceof ByteBuffer) {
 				dataTypes.add(DataType.blob());
 			} else if (value instanceof BigDecimal) {

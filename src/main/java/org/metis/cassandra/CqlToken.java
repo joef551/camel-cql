@@ -792,6 +792,7 @@ public class CqlToken {
 					"attempting to bind non-collection as collection");
 		}
 		LOG.trace("bindTuple: entered with {}", inList.toString());
+		LOG.trace("bindTuple: first object's type {}", inList.get(0).getClass().getCanonicalName());
 		TupleType tupleType = Utils.getTupleType(inList);
 		TupleValue tv = tupleType.newValue(inList.toArray(new Object[inList
 				.size()]));

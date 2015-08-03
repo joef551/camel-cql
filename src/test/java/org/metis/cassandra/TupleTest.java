@@ -13,6 +13,8 @@
  */
 package org.metis.cassandra;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -25,27 +27,38 @@ import org.junit.runners.MethodSorters;
 
 import static org.metis.utils.Constants.*;
 
-// Test methods will be executed in ascending order by name
+//Test methods will be executed in ascending order by name
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
-public class InsertUserTest extends BaseTest {
+public class TupleTest extends BaseTest {
 
 	/**
-	 * First insert the user jfernandez. Note how we're passing in a collection
-	 * of emails
+	 * First insert the customer. Note how we're passing in a collection of
+	 * emails and a tuple for location
 	 * 
 	 * @throws Exception
 	 */
 	@Test
-	public void testA() throws Exception {
-		String JSON = "{\"username\":\"jfernandez\", \"created_date\":\"2014-06-6 13:50:00\", "
-				+ "\"email\":[\"jfernandez@cox.net\",\"joef551@yahoo.com\"],"
-				+ "\"firstname\":\"joe\",\"lastname\":\"fernandez\",\"password\":\"abc123\"}";
-		template.requestBodyAndHeader("direct:start", JSON, CASSANDRA_METHOD,
+	public void testA() throws Exception {		
+		Map<String, Object> map = new HashMap<String, Object>();
+		map.put("username", "jfernandez");
+		map.put("created_date", "2014-06-6 13:50:00");
+		map.put("firstname", "joe");
+		map.put("lastname", "fernandez");
+		map.put("password", "abc123");
+		List<String> emails = new ArrayList<String>();
+		emails.add("jfernandez@cox.net");
+		emails.add("joef551@yahoo.com");
+		map.put("email", emails);
+		List<Object> tuples = new ArrayList<Object>();
+		tuples.add(new Float(123.456));
+		tuples.add(new Float(456.123));
+		map.put("location", tuples);
+		template.requestBodyAndHeader("direct:start", map, CASSANDRA_METHOD,
 				"insert");
 	}
 
 	/**
-	 * Now ensure user jfernandez was inserted
+	 * Now ensure user customer was inserted
 	 * 
 	 * @throws Exception
 	 */
@@ -53,7 +66,7 @@ public class InsertUserTest extends BaseTest {
 	public void testB() throws Exception {
 		// this is what we send to the CqlEndpoint. Note how we're
 		// specifying the request method via the payload.
-		String JSON = "{\"user\":\"jfernandez\"}";
+		String JSON = "{\"username\":\"jfernandez\"}";
 		getMockEndpoint("mock:result")
 				.expectedMessagesMatches(new TestResult());
 		// feed the route, which starts the test
@@ -65,28 +78,28 @@ public class InsertUserTest extends BaseTest {
 	}
 
 	/**
-	 * Delete user jfernandez
+	 * Delete the customer
 	 * 
 	 * @throws Exception
 	 */
 	@Test
 	public void testC() throws Exception {
 		// this is what we send to the CqlEndpoint
-		String JSON = "{\"user\":\"jfernandez\"}";
+		String JSON = "{\"username\":\"jfernandez\"}";
 		// feed the route, which starts the test
 		template.requestBodyAndHeader("direct:start", JSON, CASSANDRA_METHOD,
 				"delete");
 	}
 
 	/**
-	 * Ensure user jfernandez was deleted
+	 * Ensure customer was deleted
 	 * 
 	 * @throws Exception
 	 */
 	@Test
 	public void testD() throws Exception {
 		// this is what we send to the CqlEndpoint
-		String JSON = "{\"user\":\"jfernandez\"}";
+		String JSON = "{\"username\":\"jfernandez\"}";
 		getMockEndpoint("mock:result").expectedMessagesMatches(
 				new TestResult2());
 		// feed the route, which starts the test
@@ -95,6 +108,71 @@ public class InsertUserTest extends BaseTest {
 		// ask the mock endpoint if it received the expected body and
 		// value.
 		assertMockEndpointsSatisfied();
+	}
+
+	/**
+	 * This predicate ensures that the payload returned for TestB is as
+	 * expected.
+	 */
+	private class TestResult implements Predicate {
+
+		public boolean matches(Exchange exchange) {
+
+			System.out.println("**** DEBUG 1 ****");
+			Object payLoad = exchange.getIn().getBody();
+			if (payLoad == null) {
+				return false;
+			} else if (!(payLoad instanceof List)) {
+				return false;
+			}
+
+			List<Object> list = (List) payLoad;
+			System.out.println("**** DEBUG 2 **** = " + list.size());
+			if (list.size() != 1) {
+				return false;
+			}
+			System.out.println("**** DEBUG 2.1 ****");
+			payLoad = list.get(0);
+			if (!(payLoad instanceof Map)) {
+				System.out.println("**** DEBUG 2.2 ****");
+				return false;
+			}
+			System.out.println("**** DEBUG 3 ****");
+			Map map = (Map) payLoad;
+			if (map.size() != 7) {
+				return false;
+			}
+			System.out.println("**** DEBUG 4 ****");
+			Object value = map.get("username");
+			if (!(value instanceof String)) {
+				return false;
+			}
+			if (!"jfernandez".equals(value)) {
+				return false;
+			}
+			System.out.println("**** DEBUG 5 ****");
+			// retrieve the list of emails
+			value = map.get("email");
+			if (value == null) {
+				return false;
+			}
+			System.out.println("**** DEBUG 6 ****");
+			if (!(value instanceof List)) {
+				return false;
+			}
+			System.out.println("**** DEBUG 7 ****");
+			list = (List) value;
+			if (list.size() != 2) {
+				return false;
+			}
+			if (!"jfernandez@cox.net".equals(list.get(0).toString())) {
+				return false;
+			} else if (!"joef551@yahoo.com".equals(list.get(1).toString())) {
+				return false;
+			}
+
+			return true;
+		}
 	}
 
 	@Override
@@ -106,73 +184,9 @@ public class InsertUserTest extends BaseTest {
 				// sent to Cassandra component, then the reply is sent
 				// on to the mock endpoint. The mock endpoint will then validate
 				// it via the TestResult predicate.
-				from("direct:start").to("cql:user").to("mock:result");
+				from("direct:start").to("cql:customer").to("mock:result");
 			}
 		};
-	}
-
-	/**
-	 * This predicate ensures that the payload returned for TestB is as
-	 * expected.
-	 */
-	private class TestResult implements Predicate {
-
-		public boolean matches(Exchange exchange) {
-
-			
-			Object payLoad = exchange.getIn().getBody();
-			if (payLoad == null) {
-				return false;
-			} else if (!(payLoad instanceof List)) {
-				return false;
-			}
-			
-			List<Object> list = (List) payLoad;
-			if (list.size() != 1) {
-				return false;
-			}
-			
-			payLoad = list.get(0);
-			if (!(payLoad instanceof Map)) {
-				return false;
-			}
-			
-			Map map = (Map) payLoad;
-			if (map.size() != 2) {
-				return false;
-			}
-			Object value = map.get("username");
-			if (!(value instanceof String)) {
-				return false;
-			}
-			
-			if (!"jfernandez".equals(value)) {
-				return false;
-			}
-			
-			// retrieve the list of emails
-			value = map.get("email");
-			if (value == null) {
-				return false;
-			}
-			
-			if (!(value instanceof List)) {
-				return false;
-			}
-			
-			list = (List) value;
-			if (list.size() != 2) {
-				return false;
-			}
-			
-			if (!"jfernandez@cox.net".equals(list.get(0).toString())) {
-				return false;
-			} else if (!"joef551@yahoo.com".equals(list.get(1).toString())) {
-				return false;
-			}
-
-			return true;
-		}
 	}
 
 	/**

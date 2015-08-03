@@ -4,7 +4,7 @@ use videodb;
 
 // Basic entity table for a user
 // Includes a LIST of email addresses
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
    username varchar,
    firstname varchar,
    lastname varchar,
@@ -15,19 +15,19 @@ CREATE TABLE users (
 );
 
 // used for testing the handling of tuples
-CREATE TABLE customer (
-   username varchar,
-   firstname varchar,
-   lastname varchar,
-   email list<varchar>,
-   password varchar,
+CREATE TABLE IF NOT EXISTS customer (
+   username text,
+   firstname text,
+   lastname text,
+   email list<text>,
+   password text,
    created_date timestamp,
    location frozen<tuple<float,float>>,
    PRIMARY KEY (username)
 );
 
 //  Entity table that will store many videos for a unique user
-CREATE TABLE videos (
+CREATE TABLE IF NOT EXISTS videos (
    videoid uuid,
    videoname varchar,
    username varchar,
@@ -40,7 +40,7 @@ CREATE TABLE videos (
 
 // One-to-many from the user point of view
 // Also know as a lookup table
-CREATE TABLE username_video_index (
+CREATE TABLE IF NOT EXISTS username_video_index (
    username varchar,
    videoid uuid,
    upload_date timestamp,
@@ -49,7 +49,7 @@ CREATE TABLE username_video_index (
 ) WITH CLUSTERING ORDER BY (upload_date DESC);
 
 // Counter table
-CREATE TABLE video_rating (
+CREATE TABLE IF NOT EXISTS video_rating (
    videoid uuid,
    rating_counter counter,
    rating_total counter,
@@ -57,7 +57,7 @@ CREATE TABLE video_rating (
 );
 
 // Creating index tables for tab keywords
-CREATE TABLE tag_index (
+CREATE TABLE IF NOT EXISTS tag_index (
    tag varchar, 
    videoid uuid,
    tag_ts timestamp,
@@ -66,7 +66,7 @@ CREATE TABLE tag_index (
 
 // Comments as a many-to-many 
 // Looking from the video side to many users
-CREATE TABLE comments_by_video (
+CREATE TABLE IF NOT EXISTS comments_by_video (
    videoid uuid,
    username varchar,
    comment_ts timeuuid,
@@ -75,7 +75,7 @@ CREATE TABLE comments_by_video (
 ) WITH CLUSTERING ORDER BY (comment_ts DESC, username ASC);
 
 // looking from the user side to many videos
-CREATE TABLE comments_by_user (
+CREATE TABLE IF NOT EXISTS comments_by_user (
    username varchar,
    videoid uuid,
    comment_ts timeuuid,
@@ -85,7 +85,7 @@ CREATE TABLE comments_by_user (
 
 
 // Time series wide row with reverse comparator
-CREATE TABLE video_event (
+CREATE TABLE IF NOT EXISTS video_event (
    videoid uuid,
    username varchar,
    event varchar,
