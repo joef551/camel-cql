@@ -128,7 +128,7 @@ If a ***cqls*** property is not specified, the client bean will self-inject all 
 
 <u>keyspace</u>
 
-The **keyspace** property is used to specify the name of the keyspace, within a Cassandra cluster, that the client bean is to refernce. Note that this is overriden when a CQL statement provides a fully qualified keyspace name (e.g., keyspace_name.table_name) that is different than the one assigned to the client bean.  
+The **keyspace** property is used to specify the name of the keyspace, within a Cassandra cluster, that the client bean is to reference. Note that this is overridden when a CQL statement provides a fully qualified keyspace name (e.g., keyspace_name.table_name) that is different than the one assigned to the client bean.  
 
 <u>clusterBean</u>
 
@@ -196,7 +196,7 @@ The first subfield (from right-to-left) of a parameterized field is required, an
 
 1. **\`list:text:email\`** is a parameterized field that is matched up to an input parameter whose key name is 'email' and whose value is a list of ascii text strings. 
 2. **\`text:username\`** is a parameterized field that is matched up to an input parameter whose key name is 'username' and whose value is an ascii text string. 
-3. **\`tuple:userinfo\`** is a parameterized field that is matched up to an input parameter whose key name is 'userinfo' and whose value is a tuple. A Cassandra [tuple](http://docs.datastax.com/en/developer/java-driver/2.1/java-driver/reference/tupleTypes.html) is passed in as a List of arbitrary objects. That list is used to create a Cassandra TupleType, from which a corresponding TupleValue is created and bound to the target prepared statement.    
+3. **\`tuple:userinfo\`** is a parameterized field that is matched up to an input parameter whose key name is 'userinfo' and whose value is a tuple. A Cassandra [tuple](http://docs.datastax.com/en/developer/java-driver/2.1/java-driver/reference/tupleTypes.html) is passed in as a List of arbitrary objects. That list is used to create a Cassandra TupleType, from which a corresponding TupleValue is created and bound to the target prepared statement. ***N.B., Since tuples are passed in as a List of arbitrary object types and this component does not rely on a JSON schema, tuples cannot be passed in as part of a JSON object. Tuples must, instead, be passed in as a List that is an element of a Map whose key matches that of the parameterized field. A Tuple is returned as a List of objects. ***  
 
 Note from [1] about using collections. <i>"Use collections, such as Set, List or Map, when you want to store or denormalize a small amount of data. Values of items in collections are limited to 64K. Other limitations also apply. Collections work well for storing data such as the phone numbers of a user and labels applied to an email. If the data you need to store has unbounded growth potential, such as all the messages sent by a user or events registered by a sensor, do not use collections. Instead, use a table having a compound primary key and store data in the clustering columns".</i>
 

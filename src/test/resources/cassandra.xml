@@ -161,6 +161,7 @@
 				<ref bean="insertCustomer" />
 				<ref bean="deleteCustomer" />
 				<ref bean="selectCustomer" />
+				<ref bean="selectLocation" />
 			</list>
 		</property>
 		<property name="defaultMethod">
@@ -189,6 +190,11 @@
 	<bean id="selectCustomer" class="org.metis.cassandra.CqlStmnt">
 		<property name="statement"
 			value="select * from customer where username = `text:username`" />
+	</bean>
+
+	<bean id="selectLocation" class="org.metis.cassandra.CqlStmnt">
+		<property name="statement"
+			value="select location from customer where username = `text:locationuser`" />
 	</bean>
 
 	<bean id="cluster1" class="org.metis.cassandra.ClusterBean">

@@ -38,7 +38,7 @@ public class TupleTest extends BaseTest {
 	 * @throws Exception
 	 */
 	@Test
-	public void testA() throws Exception {		
+	public void testA() throws Exception {
 		Map<String, Object> map = new HashMap<String, Object>();
 		map.put("username", "jfernandez");
 		map.put("created_date", "2014-06-6 13:50:00");
@@ -78,12 +78,32 @@ public class TupleTest extends BaseTest {
 	}
 
 	/**
-	 * Delete the customer
+	 * Get the location tuple for the user
 	 * 
 	 * @throws Exception
 	 */
 	@Test
 	public void testC() throws Exception {
+		// this is what we send to the CqlEndpoint. Note how we're
+		// specifying the request method via the payload.
+		String JSON = "{\"locationuser\":\"jfernandez\"}";
+		getMockEndpoint("mock:result").expectedMessagesMatches(
+				new TestResult3());
+		// feed the route, which starts the test
+		template.requestBodyAndHeader("direct:start", JSON, CASSANDRA_METHOD,
+				"select");
+		// ask the mock endpoint if it received the expected body and
+		// value.
+		assertMockEndpointsSatisfied();
+	}
+
+	/**
+	 * Delete the customer
+	 * 
+	 * @throws Exception
+	 */
+	@Test
+	public void testD() throws Exception {
 		// this is what we send to the CqlEndpoint
 		String JSON = "{\"username\":\"jfernandez\"}";
 		// feed the route, which starts the test
@@ -97,7 +117,7 @@ public class TupleTest extends BaseTest {
 	 * @throws Exception
 	 */
 	@Test
-	public void testD() throws Exception {
+	public void testE() throws Exception {
 		// this is what we send to the CqlEndpoint
 		String JSON = "{\"username\":\"jfernandez\"}";
 		getMockEndpoint("mock:result").expectedMessagesMatches(
@@ -118,7 +138,6 @@ public class TupleTest extends BaseTest {
 
 		public boolean matches(Exchange exchange) {
 
-			System.out.println("**** DEBUG 1 ****");
 			Object payLoad = exchange.getIn().getBody();
 			if (payLoad == null) {
 				return false;
@@ -127,22 +146,21 @@ public class TupleTest extends BaseTest {
 			}
 
 			List<Object> list = (List) payLoad;
-			System.out.println("**** DEBUG 2 **** = " + list.size());
+
 			if (list.size() != 1) {
 				return false;
 			}
-			System.out.println("**** DEBUG 2.1 ****");
+
 			payLoad = list.get(0);
 			if (!(payLoad instanceof Map)) {
-				System.out.println("**** DEBUG 2.2 ****");
 				return false;
 			}
-			System.out.println("**** DEBUG 3 ****");
+
 			Map map = (Map) payLoad;
 			if (map.size() != 7) {
 				return false;
 			}
-			System.out.println("**** DEBUG 4 ****");
+
 			Object value = map.get("username");
 			if (!(value instanceof String)) {
 				return false;
@@ -150,17 +168,17 @@ public class TupleTest extends BaseTest {
 			if (!"jfernandez".equals(value)) {
 				return false;
 			}
-			System.out.println("**** DEBUG 5 ****");
+
 			// retrieve the list of emails
 			value = map.get("email");
 			if (value == null) {
 				return false;
 			}
-			System.out.println("**** DEBUG 6 ****");
+
 			if (!(value instanceof List)) {
 				return false;
 			}
-			System.out.println("**** DEBUG 7 ****");
+
 			list = (List) value;
 			if (list.size() != 2) {
 				return false;
@@ -173,20 +191,6 @@ public class TupleTest extends BaseTest {
 
 			return true;
 		}
-	}
-
-	@Override
-	// this is the route used by this test case.
-	protected RouteBuilder createRouteBuilder() {
-		return new RouteBuilder() {
-			public void configure() {
-				// the message is read in from the direct:start endpoint,
-				// sent to Cassandra component, then the reply is sent
-				// on to the mock endpoint. The mock endpoint will then validate
-				// it via the TestResult predicate.
-				from("direct:start").to("cql:customer").to("mock:result");
-			}
-		};
 	}
 
 	/**
@@ -206,6 +210,77 @@ public class TupleTest extends BaseTest {
 			}
 			return true;
 		}
+	}
+
+	/**
+	 * This predicate ensures that the payload returned for TestC is as
+	 * expected.
+	 */
+	private class TestResult3 implements Predicate {
+
+		public boolean matches(Exchange exchange) {
+
+			Object payLoad = exchange.getIn().getBody();
+			if (payLoad == null) {
+				return false;
+			} else if (!(payLoad instanceof List)) {
+				return false;
+			}
+
+			List<Object> list = (List) payLoad;
+			if (list.size() != 1) {
+				return false;
+			}
+
+			payLoad = list.get(0);
+			if (!(payLoad instanceof Map)) {
+				return false;
+			}
+
+			Map map = (Map) payLoad;
+			if (map.size() != 1) {
+				return false;
+			}
+
+			Object value = map.get("location");
+			if (!(value instanceof List)) {
+				return false;
+			}
+			List location = (List) value;
+
+			if (location.size() != 2) {
+				return false;
+			}
+
+			if (!(location.get(0) instanceof Float)
+					|| !(location.get(0) instanceof Float)) {
+				return false;
+			}
+			
+			for(int i = 0; i < location.size(); i++){
+				float f1 = (Float)location.get(i);
+				System.out.println("**** f1 = " + f1);
+				if(f1 != 123.456F && f1 != 456.123F) {
+					return false;
+				}
+			}	
+
+			return true;
+		}
+	}
+
+	@Override
+	// this is the route used by this test case.
+	protected RouteBuilder createRouteBuilder() {
+		return new RouteBuilder() {
+			public void configure() {
+				// the message is read in from the direct:start endpoint,
+				// sent to Cassandra component, then the reply is sent
+				// on to the mock endpoint. The mock endpoint will then validate
+				// it via the TestResult predicate.
+				from("direct:start").to("cql:customer").to("mock:result");
+			}
+		};
 	}
 
 }
