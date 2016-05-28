@@ -11,7 +11,7 @@
 
 
 	<!-- A Client bean called user that auto-injects the client beans -->
-	<bean id="user" class="org.metis.cassandra.Client">		
+	<bean id="user" class="org.metis.cassandra.Client">
 		<property name="keyspace" value="videodb" />
 		<property name="clusterBean" ref="cluster1" />
 	</bean>
@@ -29,16 +29,16 @@
 	<bean id="select3" class="org.metis.cassandra.CqlStmnt">
 		<property name="statement"
 			value="select username, email from users where username =
-					`text:user`" />		
+					`text:user`" />
 	</bean>
 	<bean id="insert1" class="org.metis.cassandra.CqlStmnt">
 		<property name="statement"
 			value="insert into users (username, created_date, email, firstname,
 					lastname, password) values (`text:username`,
 					`timestamp:created_date`, `list:text:email`,
-					`text:firstname`,`text:lastname`,`text:password`)" />		
+					`text:firstname`,`text:lastname`,`text:password`)" />
 	</bean>
-	
+
 	<bean id="cluster1" class="org.metis.cassandra.ClusterBean">
 		<property name="clusterName" value="myCluster" />
 		<property name="clusterNodes" value="127.0.0.1" />
@@ -69,6 +69,7 @@
 		class="com.datastax.driver.core.policies.DowngradingConsistencyRetryPolicy" />
 
 	<bean id="metricsOptions" class="com.datastax.driver.core.MetricsOptions">
+		<constructor-arg name="enabled" value="true" />
 		<constructor-arg name="jmxEnabled" value="true" />
 	</bean>
 	<bean id="protocolOptions" class="com.datastax.driver.core.ProtocolOptions">
@@ -93,22 +94,22 @@
 	<bean id="socketOptions" class="com.datastax.driver.core.SocketOptions" />
 	<bean id="poolingOptions" class="com.datastax.driver.core.PoolingOptions" />
 	<bean id="localOption" class="org.metis.cassandra.PoolingOption">
-		<property name="distance" value="local" />
+		<property name="hostDistance">
+			<util:constant static-field="com.datastax.driver.core.HostDistance.LOCAL" />
+		</property>
 		<property name="coreConnectionsPerHost" value="5" />
 		<property name="maxConnectionsPerHost" value="10" />
-		<property name="maxSimultaneousRequestsPerConnectionThreshold"
-			value="2" />
-		<property name="maxSimultaneousRequestsPerHostThreshold"
-			value="5" />
+		<property name="newConnectionThreshold" value="2" />
+		<property name="maxRequestsPerConnection" value="5" />
 	</bean>
 	<bean id="remoteOption" class="org.metis.cassandra.PoolingOption">
-		<property name="distance" value="remote" />
+		<property name="hostDistance">
+			<util:constant static-field="com.datastax.driver.core.HostDistance.REMOTE" />
+		</property>
 		<property name="coreConnectionsPerHost" value="2" />
 		<property name="maxConnectionsPerHost" value="10" />
-		<property name="maxSimultaneousRequestsPerConnectionThreshold"
-			value="2" />
-		<property name="maxSimultaneousRequestsPerHostThreshold"
-			value="5" />
+		<property name="newConnectionThreshold" value="2" />
+		<property name="maxRequestsPerConnection" value="5" />
 	</bean>
 
 	<!-- An example of how to inject an Enum of ONE for the consistency level -->

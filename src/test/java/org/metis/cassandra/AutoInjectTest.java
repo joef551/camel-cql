@@ -18,10 +18,11 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.FixMethodOrder;
 import org.junit.runners.MethodSorters;
+import static com.datastax.driver.core.HostDistance.LOCAL;
+import static com.datastax.driver.core.HostDistance.REMOTE;
 
 import static org.junit.Assert.*;
 
-import org.springframework.beans.BeansException;
 
 /**
  * Reads in a test Spring context file and runs some tests based on the file.
@@ -55,6 +56,16 @@ public class AutoInjectTest {
 			assertTrue(cc.getClients().get("user") != null);
 			assertTrue(cc.getClients().get("user").getCqlStmnts4Select().size() == 3);
 			assertTrue(cc.getClients().get("user").getCqlStmnts4Insert().size() == 1);
+			assertTrue(cc.getClients().get("user").getCluster().getClusterName().equals("myCluster"));
+			assertTrue(cc.getClients().get("user").getClusterBean().getBeanName().equals("cluster1"));
+			assertTrue(cc.getClients().get("user").getClusterBean().getListOfPoolingOptions().size() == 2);
+			assertTrue(cc.getClients().get("user").getClusterBean().getProtocolOptions().getPort() == 9042);
+			assertTrue(cc.getClients().get("user").getClusterBean().getProtocolOptions().getProtocolVersion().toInt() == 2);
+			assertTrue(cc.getClients().get("user").getClusterBean().getProtocolOptions().getMaxSchemaAgreementWaitSeconds() == 2);
+			assertTrue(cc.getClients().get("user").getClusterBean().getListOfPoolingOptions().get(0).getHostDistance() == LOCAL);
+			assertTrue(cc.getClients().get("user").getClusterBean().getListOfPoolingOptions().get(0).getCoreConnectionsPerHost() == 5);
+			assertTrue(cc.getClients().get("user").getClusterBean().getListOfPoolingOptions().get(1).getHostDistance() == REMOTE);
+			assertTrue(cc.getClients().get("user").getClusterBean().getListOfPoolingOptions().get(1).getCoreConnectionsPerHost() == 2);
 			Endpoint endpoint = cc.createEndpoint("cql://user", "user", null);
 			assertTrue(endpoint != null);
 			assertTrue(endpoint instanceof CqlEndpoint);

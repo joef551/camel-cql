@@ -284,7 +284,7 @@ You can only have one client mapper per Spring XML application context.
 
 A cluster bean, in combination with its referenced beans, is used for configuring an instance of a [Cassandra Java driver](http://docs.datastax.com/en/developer/java-driver/3.0/java-driver/whatsNew2.html), which is used for accessing a Cassandra cluster. Each client bean in the Spring context must be wired to a cluster bean. You can define any number of cluster beans; each used for accessing a different Cassandra cluster. 
 
-The cluster bean is used to build an instance of a Cassandra [Cluster](http://docs.datastax.com/en/drivers/java/3.0/com/datastax/driver/core/Cluster.html) object. The cluster bean implements the [Cluster.Initializer](http://docs.datastax.com/en/drivers/java/3.0/com/datastax/driver/core/Cluster.Initializer.html) and uses itself to build a Cluster.
+The cluster bean is used to build an instance of a Cassandra [Cluster](http://docs.datastax.com/en/drivers/java/3.0/com/datastax/driver/core/Cluster.html) object. The cluster bean implements the [Cluster.Initializer](http://docs.datastax.com/en/drivers/java/3.0/com/datastax/driver/core/Cluster.Initializer.html) interface and uses itself to build a Cluster.
 
 The following is an example definition of a cluster bean. Please note that not all of the cluster bean's properties are depicted in the example. Also, please refer to the driver's [API docs](http://docs.datastax.com/en/drivers/java/3.0/index.html) for more detailed information on the driver's policies and options.  
 
@@ -349,7 +349,7 @@ The following is an example definition of a cluster bean. Please note that not a
 
 <bean id="localOption" class="org.metis.cassandra.PoolingOption">
         <!-- An example of how to inject an Enum of REMOTE for the HostDistance -->
-		<property name="distance"/>
+		<property name="hostDistance">
 		  <util:constant static-field="com.datastax.driver.core.HostDistance.LOCAL"/>
 		</property>
 		<property name="coreConnectionsPerHost" value="5" />
@@ -358,7 +358,7 @@ The following is an example definition of a cluster bean. Please note that not a
 		<property name="maxSimultaneousRequestsPerHostThreshold" value="5" />
 </bean>
 <bean id="remoteOption" class="org.metis.cassandra.PoolingOption">
-        <property name="distance"/>
+        <property name="hostDistance">
 		  <util:constant static-field="com.datastax.driver.core.HostDistance.REMOTE"/>
 		</property>
 		<property name="coreConnectionsPerHost" value="5" />
