@@ -27,11 +27,11 @@ public class PoolingOption implements InitializingBean, BeanNameAware,
 	private static final Logger LOG = LoggerFactory
 			.getLogger(PoolingOption.class);
 	private String beanName;
+
 	private int coreConnectionsPerHost = -1;
 	private int maxConnectionsPerHost = -1;
-	private int maxSimultaneousRequestsPerConnectionThreshold = -1;
-	private int maxSimultaneousRequestsPerHostThreshold = -1;
-	private String distance;
+	private int newConnectionThreshold = -1;
+	private int maxRequestsPerConnection = -1;
 	private HostDistance hostDistance = HostDistance.IGNORED;
 
 	public PoolingOption() {
@@ -56,8 +56,8 @@ public class PoolingOption implements InitializingBean, BeanNameAware,
 		this.beanName = beanName;
 	}
 
-	public String getDistance() {
-		return distance;
+	public HostDistance getHostDistance() {
+		return hostDistance;
 	}
 
 	/**
@@ -73,26 +73,9 @@ public class PoolingOption implements InitializingBean, BeanNameAware,
 	 * words, IGNORED should be assigned to hosts that should not be used by
 	 * this driver (because they are in a remote data center for instance).
 	 * 
-	 * @param distance
-	 * @throws IllegalArgumentException
-	 */
-	public void setDistance(String distance) throws IllegalArgumentException {
-		if (distance == null || distance.isEmpty()) {
-			throw new IllegalArgumentException("illegal distance string");
-		}
-		setHostDistance(HostDistance.valueOf(distance.toUpperCase()));
-		this.distance = distance;
-	}
-
-	public HostDistance getHostDistance() {
-		return hostDistance;
-	}
-
-	/**
-	 * 
 	 * @param hostDistance
 	 */
-	private void setHostDistance(HostDistance hostDistance) {
+	public void setHostDistance(HostDistance hostDistance) {
 		this.hostDistance = hostDistance;
 	}
 
@@ -131,39 +114,33 @@ public class PoolingOption implements InitializingBean, BeanNameAware,
 	}
 
 	/**
-	 * @return the maxSimultaneousRequestsPerHostThreshold
+	 * @return the newConnectionThreshold
 	 */
-	public int getMaxSimultaneousRequestsPerHostThreshold() {
-		return maxSimultaneousRequestsPerHostThreshold;
+	public int getNewConnectionThreshold() {
+		return newConnectionThreshold;
 	}
 
 	/**
-	 * 
-	 * Sets number of simultaneous requests on all connections to a host after
-	 * which more connections are created.
-	 * 
-	 * @param maxSimultaneousRequestsPerHostThreshold
-	 *            the maxSimultaneousRequestsPerHostThreshold to set
+	 * @param newConnectionThreshold
+	 *            the newConnectionThreshold to set
 	 */
-	public void setMaxSimultaneousRequestsPerHostThreshold(
-			int maxSimultaneousRequestsPerHostThreshold) {
-		this.maxSimultaneousRequestsPerHostThreshold = maxSimultaneousRequestsPerHostThreshold;
+	public void setNewConnectionThreshold(int newConnectionThreshold) {
+		this.newConnectionThreshold = newConnectionThreshold;
 	}
 
 	/**
-	 * @return the maxSimultaneousRequestsPerConnectionThreshold
+	 * @return the maxRequestsPerConnection
 	 */
-	public int getMaxSimultaneousRequestsPerConnectionThreshold() {
-		return maxSimultaneousRequestsPerConnectionThreshold;
+	public int getMaxRequestsPerConnection() {
+		return maxRequestsPerConnection;
 	}
 
 	/**
-	 * @param maxSimultaneousRequestsPerConnectionThreshold
-	 *            the maxSimultaneousRequestsPerConnectionThreshold to set
+	 * @param maxRequestsPerConnection
+	 *            the maxRequestsPerConnection to set
 	 */
-	public void setMaxSimultaneousRequestsPerConnectionThreshold(
-			int maxSimultaneousRequestsPerConnectionThreshold) {
-		this.maxSimultaneousRequestsPerConnectionThreshold = maxSimultaneousRequestsPerConnectionThreshold;
+	public void setMaxRequestsPerConnection(int maxRequestsPerConnection) {
+		this.maxRequestsPerConnection = maxRequestsPerConnection;
 	}
 
 }

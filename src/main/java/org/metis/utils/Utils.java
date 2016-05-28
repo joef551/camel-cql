@@ -37,6 +37,7 @@ import org.slf4j.LoggerFactory;
 
 import com.datastax.driver.core.DataType;
 import com.datastax.driver.core.TupleType;
+import com.datastax.driver.core.Metadata;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
@@ -254,18 +255,18 @@ public class Utils {
 	 * 
 	 * @param elements
 	 */
-	public static void dumpStackTrace(StackTraceElement[] elements) {		
-		
-		if (elements == null || elements.length == 0) {			
+	public static void dumpStackTrace(StackTraceElement[] elements) {
+
+		if (elements == null || elements.length == 0) {
 			return;
-		}		
-		//int i = 0;
-		for (int i = 0; i < elements.length; i++) {
-			LOG.error(elements[i].toString());			
 		}
-		//if (elements.length > i) {
-		//	LOG.error("... " + (elements.length - i) + " more");
-		//}
+		// int i = 0;
+		for (int i = 0; i < elements.length; i++) {
+			LOG.error(elements[i].toString());
+		}
+		// if (elements.length > i) {
+		// LOG.error("... " + (elements.length - i) + " more");
+		// }
 	}
 
 	/**
@@ -340,6 +341,8 @@ public class Utils {
 	}
 
 	/**
+	 * Determines whether the given object is a Set, Map or List then calls into
+	 * the corresponding key:value mapper method.
 	 * 
 	 * @param inObj
 	 * @return
@@ -358,6 +361,14 @@ public class Utils {
 		return null;
 	}
 
+	/**
+	 * Given a Map of String:Object key:value pairs, returns a Map comprising
+	 * String:String key:value pairs. For example, a Map of String:Integer
+	 * key:value pairs is returned as String:String key:value pairs.
+	 * 
+	 * @param inMap
+	 * @return
+	 */
 	public static Map<String, Object> objToString(Map<Object, Object> inMap) {
 		if (inMap == null) {
 			return null;
@@ -378,6 +389,14 @@ public class Utils {
 		return outMap;
 	}
 
+	/**
+	 * Given a Set of Objects, returns a Set of String objects. For example, a
+	 * Set of Integers is returned as a set of Strings objects, where each
+	 * String object is the String representation of its corresponding Integer
+	 * 
+	 * @param inSet
+	 * @return
+	 */
 	public static Set<Object> objToString(Set<Object> inSet) {
 		if (inSet == null) {
 			return null;
@@ -397,6 +416,14 @@ public class Utils {
 		return outSet;
 	}
 
+	/**
+	 * Given a List of Objects, returns a List of String objects. For example, a
+	 * List of Integers is returned as a list of Strings objects, where each
+	 * String object is the String representation of its corresponding Integer
+	 * 
+	 * @param inList
+	 * @return
+	 */
 	public static List<Object> objToString(List<Object> inList) {
 		if (inList == null) {
 			return null;
@@ -423,11 +450,12 @@ public class Utils {
 	 * @param values
 	 * @return
 	 */
-	public static TupleType getTupleType(List<Object> values)
-			throws IllegalArgumentException {
+	public static TupleType getTupleType(Metadata clusterMetaData,
+			List<Object> values) throws IllegalArgumentException {
 		List<DataType> dataTypes = new ArrayList<DataType>();
 		for (Object value : values) {
-			LOG.trace("getTupleType: Object type = " + value.getClass().getCanonicalName());
+			LOG.trace("getTupleType: Object type = "
+					+ value.getClass().getCanonicalName());
 			if (value instanceof ByteBuffer) {
 				dataTypes.add(DataType.blob());
 			} else if (value instanceof BigDecimal) {
@@ -440,6 +468,8 @@ public class Utils {
 				dataTypes.add(DataType.inet());
 			} else if (value instanceof Integer) {
 				dataTypes.add(DataType.cint());
+			} else if (value instanceof Short) {
+				dataTypes.add(DataType.smallint());
 			} else if (value instanceof Long) {
 				dataTypes.add(DataType.counter());
 			} else if (value instanceof Float) {
@@ -455,7 +485,10 @@ public class Utils {
 						+ value.getClass().getCanonicalName());
 			}
 		}
-		return TupleType.of(dataTypes.toArray(new DataType[dataTypes.size()]));
+		return clusterMetaData.newTupleType(dataTypes
+				.toArray(new DataType[dataTypes.size()]));
+		// return TupleType.of(dataTypes.toArray(new
+		// DataType[dataTypes.size()]));
 	}
 
 	public static void main(String[] args) throws Exception {

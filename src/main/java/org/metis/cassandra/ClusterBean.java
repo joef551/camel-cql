@@ -32,9 +32,10 @@ import com.datastax.driver.core.ProtocolOptions;
 import com.datastax.driver.core.SocketOptions;
 import com.datastax.driver.core.QueryOptions;
 import com.datastax.driver.core.policies.LoadBalancingPolicy;
-import com.datastax.driver.core.policies.AddressTranslater;
+import com.datastax.driver.core.policies.AddressTranslator;
 import com.datastax.driver.core.policies.ReconnectionPolicy;
 import com.datastax.driver.core.policies.RetryPolicy;
+import com.datastax.driver.core.TimestampGenerator;
 import com.datastax.driver.core.NettyOptions;
 import static com.datastax.driver.core.NettyOptions.DEFAULT_INSTANCE;
 import com.datastax.driver.core.policies.SpeculativeExecutionPolicy;
@@ -58,11 +59,13 @@ public class ClusterBean implements InitializingBean, BeanNameAware,
 	private Collection<StateListener> initialListeners = new ArrayList<StateListener>();
 	private MetricsOptions metricsOptions;
 	private Policies policies;
+	private Policies.Builder policiesBuilder;
 	private LoadBalancingPolicy loadBalancingPolicy;
-	private AddressTranslater addressTranslater;
+	private AddressTranslator addressTranslator;
 	private ReconnectionPolicy reconnectionPolicy;
 	private RetryPolicy retryPolicy;
 	private PoolingOptions poolingOptions;
+	private TimestampGenerator timestampGenerator;
 	private List<PoolingOption> listOfPoolingOptions;
 	private ProtocolOptions protocolOptions;
 	private SocketOptions socketOptions;
@@ -89,18 +92,26 @@ public class ClusterBean implements InitializingBean, BeanNameAware,
 			setMetricsOptions(new MetricsOptions());
 		}
 
-		// 2. Set any injected Policies. Those not injected will be defaulted.
-		setPolicies(new Policies(
-				(getLoadBalancingPolicy() != null ? getLoadBalancingPolicy()
-						: Policies.defaultLoadBalancingPolicy()),
-				(getReconnectionPolicy() != null ? getReconnectionPolicy()
-						: Policies.defaultReconnectionPolicy()),
-				(getRetryPolicy() != null ? getRetryPolicy() : Policies
-						.defaultRetryPolicy()),
-				(getAddressTranslater() != null ? getAddressTranslater()
-						: Policies.defaultAddressTranslater()),
-				(getSpeculativeExecutionPolicy() != null ? getSpeculativeExecutionPolicy()
-						: Policies.defaultSpeculativeExecutionPolicy())));
+		// 2. Set the injected Polices or default if Policy was not injected
+		setPolicies((new Policies.Builder())
+				.withLoadBalancingPolicy(
+						getLoadBalancingPolicy() != null ? getLoadBalancingPolicy()
+								: Policies.defaultLoadBalancingPolicy())
+				.withReconnectionPolicy(
+						(getReconnectionPolicy() != null ? getReconnectionPolicy()
+								: Policies.defaultReconnectionPolicy()))
+				.withRetryPolicy(
+						(getRetryPolicy() != null ? getRetryPolicy() : Policies
+								.defaultRetryPolicy()))
+				.withAddressTranslator(
+						(getAddressTranslator() != null ? getAddressTranslator()
+								: Policies.defaultAddressTranslator()))
+				.withSpeculativeExecutionPolicy(
+						(getSpeculativeExecutionPolicy() != null ? getSpeculativeExecutionPolicy()
+								: Policies.defaultSpeculativeExecutionPolicy()))
+				.withTimestampGenerator(
+						getTimestampGenerator() != null ? getTimestampGenerator()
+								: Policies.defaultTimestampGenerator()).build());
 
 		// 3. Set the protocol options. Can be injected via Spring, and if not a
 		// default is used.
@@ -126,17 +137,17 @@ public class ClusterBean implements InitializingBean, BeanNameAware,
 								.setMaxConnectionsPerHost(po.getHostDistance(),
 										po.getMaxConnectionsPerHost()));
 					}
-					if (po.getMaxSimultaneousRequestsPerHostThreshold() >= 0) {
+					if (po.getMaxRequestsPerConnection() >= 0) {
 						setPoolingOptions(getPoolingOptions()
-								.setMaxSimultaneousRequestsPerHostThreshold(
+								.setMaxRequestsPerConnection(
 										po.getHostDistance(),
-										po.getMaxSimultaneousRequestsPerHostThreshold()));
+										po.getMaxRequestsPerConnection()));
 					}
-					if (po.getMaxSimultaneousRequestsPerConnectionThreshold() >= 0) {
+					if (po.getNewConnectionThreshold() >= 0) {
 						setPoolingOptions(getPoolingOptions()
-								.setMaxSimultaneousRequestsPerConnectionThreshold(
+								.setNewConnectionThreshold(
 										po.getHostDistance(),
-										po.getMaxSimultaneousRequestsPerConnectionThreshold()));
+										po.getNewConnectionThreshold()));
 					}
 				}
 			}
@@ -171,13 +182,17 @@ public class ClusterBean implements InitializingBean, BeanNameAware,
 		setContactPoints(addrs);
 
 		// 8. Set the configuration
-		setConfiguration(new Configuration(getPolicies(), getProtocolOptions(),
-				getPoolingOptions(), getSocketOptions(), getMetricsOptions(),
-				getQueryOptions(), getNettyOptions()));
+		setConfiguration((new Configuration.Builder())
+				.withPolicies(getPolicies())
+				.withProtocolOptions(getProtocolOptions())
+				.withPoolingOptions(getPoolingOptions())
+				.withSocketOptions(getSocketOptions())
+				.withMetricsOptions(getMetricsOptions())
+				.withQueryOptions(getQueryOptions())
+				.withNettyOptions(getNettyOptions()).build());
 
 		// 9. Now create a Cluster from all that has been gathered
 		setCluster(Cluster.buildFrom(this));
-
 	}
 
 	public void destroy() {
@@ -358,16 +373,16 @@ public class ClusterBean implements InitializingBean, BeanNameAware,
 	/**
 	 * @return the addressTranslater
 	 */
-	public AddressTranslater getAddressTranslater() {
-		return addressTranslater;
+	public AddressTranslator getAddressTranslator() {
+		return addressTranslator;
 	}
 
 	/**
 	 * @param addressTranslater
 	 *            the addressTranslater to set
 	 */
-	public void setAddressTranslater(AddressTranslater addressTranslater) {
-		this.addressTranslater = addressTranslater;
+	public void setAddressTranslater(AddressTranslator addressTranslator) {
+		this.addressTranslator = addressTranslator;
 	}
 
 	/**
@@ -429,6 +444,36 @@ public class ClusterBean implements InitializingBean, BeanNameAware,
 	public void setSpeculativeExecutionPolicy(
 			SpeculativeExecutionPolicy speculativeExecutionPolicy) {
 		this.speculativeExecutionPolicy = speculativeExecutionPolicy;
+	}
+
+	/**
+	 * @return the policiesBuilder
+	 */
+	public Policies.Builder getPoliciesBuilder() {
+		return policiesBuilder;
+	}
+
+	/**
+	 * @param policiesBuilder
+	 *            the policiesBuilder to set
+	 */
+	public void setPoliciesBuilder(Policies.Builder policiesBuilder) {
+		this.policiesBuilder = policiesBuilder;
+	}
+
+	/**
+	 * @return the timestampGenerator
+	 */
+	public TimestampGenerator getTimestampGenerator() {
+		return timestampGenerator;
+	}
+
+	/**
+	 * @param timestampGenerator
+	 *            the timestampGenerator to set
+	 */
+	public void setTimestampGenerator(TimestampGenerator timestampGenerator) {
+		this.timestampGenerator = timestampGenerator;
 	}
 
 }

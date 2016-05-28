@@ -171,18 +171,34 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 		return keyTokens.size();
 	}
 
+	/**
+	 * 
+	 * @return true if this is a SELECT statement
+	 */
 	public boolean isSelect() {
 		return getCqlStmntType() == Method.SELECT;
 	}
 
+	/**
+	 * 
+	 * @return true if this is a DELETE statement
+	 */
 	public boolean isDelete() {
 		return getCqlStmntType() == Method.DELETE;
 	}
 
+	/**
+	 * 
+	 * @return true if this is an INSERT statement
+	 */
 	public boolean isInsert() {
 		return getCqlStmntType() == Method.INSERT;
 	}
 
+	/**
+	 * 
+	 * @return true if this is is an UPDATE statement
+	 */
 	public boolean isUpdate() {
 		return getCqlStmntType() == Method.UPDATE;
 	}
@@ -480,7 +496,9 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 
 	/**
 	 * Called by the Client bean to execute this CQL statement with the given
-	 * params.
+	 * params. Note that you can have multiple Client beans referencing this
+	 * singleton CqlStmnt object, where each client is using a distnct Cassandra
+	 * session.
 	 * 
 	 */
 	public ResultSet execute(Map<String, Object> inParams, Message inMsg,
@@ -510,8 +528,9 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 			return null;
 		}
 
-		// grab the statement pool pertaining to the session.
-		// if one does not exist, create one
+		// grab the statement pool pertaining to the session. if one does not
+		// exist, create one. for more info on why these pools are necessary,
+		// refer to the comments found at CqlStmntPool
 		CqlStmntPool cqlStmntPool = null;
 		synchronized (stmntPool) {
 			cqlStmntPool = stmntPool.get(session);
@@ -522,8 +541,8 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 		}
 
 		// if this CQL statement is a prepared statement, ensure that it has
-		// been prepared for this session
-		synchronized (this) {
+		// been prepared for this session's pool
+		synchronized (cqlStmntPool) {
 			if (isPrepared() && cqlStmntPool.getPreparedStatement() == null) {
 				cqlStmntPool.setPreparedStatement(session
 						.prepare(getPreparedStr()));
@@ -598,7 +617,8 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 		ResultSet resultSet = null;
 		// execute the statement
 		try {
-			// get either a bound or simple statement
+			// get either a bound or simple statement from the session's
+			// statement pool
 			stmnt = (isPrepared()) ? cqlStmntPool.getBoundStatement()
 					: cqlStmntPool.getSimpleStatement();
 			if (stmnt == null) {
@@ -642,7 +662,9 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 			if (isPrepared()) {
 				LOG.debug("execute: executing this prepared statement {} ",
 						getPreparedStr());
+				// bind the input key:values to the prepared statement
 				for (String key : params.keySet()) {
+					// ensure input key has corresponding key in this statement
 					CqlToken token = getKeyTokens().get(key);
 					if (token == null) {
 						LOG.error(
@@ -654,7 +676,7 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 						return null;
 					} else {
 						try {
-							token.bindObject((BoundStatement) stmnt,
+							token.bindObject(session, (BoundStatement) stmnt,
 									params.get(key));
 						} catch (Exception exc) {
 							LOG.error(
@@ -683,10 +705,10 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 		} catch (Exception exc) {
 			LOG.error(getBeanName() + ":execute: caught this exception {}", exc
 					.getClass().getName());
-			//Utils.dumpStackTrace(exc.getStackTrace());
-			//if (exc.getCause() != null) {
-			//	Utils.dumpStackTrace(exc.getCause().getStackTrace());
-			//}
+			// Utils.dumpStackTrace(exc.getStackTrace());
+			// if (exc.getCause() != null) {
+			// Utils.dumpStackTrace(exc.getCause().getStackTrace());
+			// }
 			exc.printStackTrace();
 		}
 		cqlStmntPool.returnStatement(stmnt);
@@ -847,8 +869,6 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 					cstate = SPACE_CHR;
 				}
 			} else if (cstate != SPACE_CHR || c != SPACE_CHR) {
-
-				// } else {
 				pstate = cstate;
 				cstate = c;
 				// if we've just read in a back tic or comma, then

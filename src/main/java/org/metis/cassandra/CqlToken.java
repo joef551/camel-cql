@@ -34,6 +34,7 @@ import com.datastax.driver.core.DataType;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.TupleType;
 import com.datastax.driver.core.TupleValue;
+import com.datastax.driver.core.Session;
 
 import org.metis.utils.Utils;
 import org.slf4j.Logger;
@@ -134,9 +135,9 @@ public class CqlToken {
 		}
 	}
 
-	public static boolean isCollection(DataType.Name type) {
-		return type.isCollection();
-	}
+	// public static boolean isCollection(DataType.Name type) {
+	// return type.isCollection();
+	// }
 
 	/**
 	 * Create a non-parameterized token.
@@ -193,7 +194,8 @@ public class CqlToken {
 	 * Binds an object to a BoundStatement
 	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
-	public void bindObject(BoundStatement bs, Object obj) throws Exception {
+	public void bindObject(Session session, BoundStatement bs, Object obj)
+			throws Exception {
 		LOG.trace("bindObject: entered with this type {}", obj.getClass()
 				.getName());
 		if (obj instanceof String) {
@@ -202,7 +204,7 @@ public class CqlToken {
 			bindMap(bs, (Map) obj);
 		} else if (obj instanceof List) {
 			if (getCollectionType() == DataType.Name.TUPLE) {
-				bindTuple(bs, (List) obj);
+				bindTuple(session, bs, (List) obj);
 			} else {
 				bindList(bs, (List) obj);
 			}
@@ -412,7 +414,7 @@ public class CqlToken {
 			for (Integer pos : getPositions()) {
 				LOG.trace("bindString: binding {} to position {}",
 						iDate.toString(), pos);
-				bs.setDate(pos, iDate);
+				bs.setTimestamp(pos, iDate);
 			}
 			break;
 		case TIMEUUID:
@@ -785,15 +787,17 @@ public class CqlToken {
 	 * @param inList
 	 * @throws Exception
 	 */
-	public void bindTuple(BoundStatement bs, List<Object> inList)
-			throws Exception {
+	public void bindTuple(Session session, BoundStatement bs,
+			List<Object> inList) throws Exception {
 		if (!isCollection()) {
 			throw new Exception(
 					"attempting to bind non-collection as collection");
 		}
 		LOG.trace("bindTuple: entered with {}", inList.toString());
-		LOG.trace("bindTuple: first object's type {}", inList.get(0).getClass().getCanonicalName());
-		TupleType tupleType = Utils.getTupleType(inList);
+		LOG.trace("bindTuple: first object's type {}", inList.get(0).getClass()
+				.getCanonicalName());
+		TupleType tupleType = Utils.getTupleType(session.getCluster()
+				.getMetadata(), inList);
 		TupleValue tv = tupleType.newValue(inList.toArray(new Object[inList
 				.size()]));
 		for (Integer pos : getPositions())

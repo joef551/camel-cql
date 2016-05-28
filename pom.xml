@@ -29,7 +29,7 @@
 		<camel.version>2.13.1</camel.version>
 		<jackson.version>2.3.3</jackson.version>
 		<tycho.version>0.20.0</tycho.version>
-		<cassy.driver.version>2.1.6</cassy.driver.version>
+		<cassy.driver.version>3.0.2</cassy.driver.version>
 	</properties>
 
 	<dependencies>

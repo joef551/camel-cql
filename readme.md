@@ -282,9 +282,11 @@ You can only have one client mapper per Spring XML application context.
 <h2 id="clusterbean">Cluster Bean</h2>
 
 
-A cluster bean, in combination with its referenced beans, is used for configuring an instance of a [Cassandra Java driver](http://docs.datastax.com/en/developer/java-driver/2.1/java-driver/whatsNew2.html), which is used for accessing a Cassandra cluster. Each client bean in the Spring context must be wired to a cluster bean. You can define any number of cluster beans; each used for accessing a different Cassandra cluster. 
+A cluster bean, in combination with its referenced beans, is used for configuring an instance of a [Cassandra Java driver](http://docs.datastax.com/en/developer/java-driver/3.0/java-driver/whatsNew2.html), which is used for accessing a Cassandra cluster. Each client bean in the Spring context must be wired to a cluster bean. You can define any number of cluster beans; each used for accessing a different Cassandra cluster. 
 
-The following is an example definition of a cluster bean. Please note that not all of the cluster bean's properties are depicted in the example. Also, please refer to the driver's [API docs](http://docs.datastax.com/en/drivers/java/2.1/) for more detailed information on the driver's policies and options.  
+The cluster bean is used to build an instance of a Cassandra [Cluster](http://docs.datastax.com/en/drivers/java/3.0/com/datastax/driver/core/Cluster.html) object. The cluster bean implements the [Cluster.Initializer](http://docs.datastax.com/en/drivers/java/3.0/com/datastax/driver/core/Cluster.Initializer.html) and uses itself to build a Cluster.
+
+The following is an example definition of a cluster bean. Please note that not all of the cluster bean's properties are depicted in the example. Also, please refer to the driver's [API docs](http://docs.datastax.com/en/drivers/java/3.0/index.html) for more detailed information on the driver's policies and options.  
 
 
 ```xml
@@ -294,7 +296,7 @@ The following is an example definition of a cluster bean. Please note that not a
 	<property name="clusterNodes" value="127.0.0.1" />
 	
 	<!-- Some of the driver's policies. If one is not specified it will be 
-	     defaulted. Please refer to the 2.1 driver's API documentation for a 
+	     defaulted. Please refer to the 3.x driver's API documentation for a 
 	     complete list of policies and their defaults -->
 	<property name="loadBalancingPolicy" ref="roundRobin" />
 	<property name="reconnectionPolicy" ref="reconnectionPolicy" />
@@ -344,15 +346,21 @@ The following is an example definition of a cluster bean. Please note that not a
 </bean>
 
 <bean id="poolingOptions" class="com.datastax.driver.core.PoolingOptions"/>
+
 <bean id="localOption" class="org.metis.cassandra.PoolingOption">
-		<property name="distance" value="local" />
+        <!-- An example of how to inject an Enum of REMOTE for the HostDistance -->
+		<property name="distance"/>
+		  <util:constant static-field="com.datastax.driver.core.HostDistance.LOCAL"/>
+		</property>
 		<property name="coreConnectionsPerHost" value="5" />
 		<property name="maxConnectionsPerHost" value="10" />
 		<property name="maxSimultaneousRequestsPerConnectionThreshold" value="2" />
 		<property name="maxSimultaneousRequestsPerHostThreshold" value="5" />
 </bean>
 <bean id="remoteOption" class="org.metis.cassandra.PoolingOption">
-		<property name="distance" value="remote" />
+        <property name="distance"/>
+		  <util:constant static-field="com.datastax.driver.core.HostDistance.REMOTE"/>
+		</property>
 		<property name="coreConnectionsPerHost" value="5" />
 		<property name="maxConnectionsPerHost" value="10" />
 		<property name="maxSimultaneousRequestsPerConnectionThreshold" value="2" />
@@ -361,7 +369,7 @@ The following is an example definition of a cluster bean. Please note that not a
 
 <bean id="socketOptions" class="com.datastax.driver.core.SocketOptions"/>
 
-<!-- An example of how to inject an Enum of ONE for the consistency level -->
+
 <bean id="queryOptions" class="com.datastax.driver.core.QueryOptions">
   <property name="consistencyLevel">
     <util:constant static-field="com.datastax.driver.core.ConsistencyLevel.ONE"/>
@@ -377,43 +385,46 @@ The following is an example definition of a cluster bean. Please note that not a
 
 The **clusterName** property is used to override the default cluster name, which is taken from the bean id. This is used primarily for JMX. 
 
-<u>clusterNode</u>
+<u>clusterNodes</u>
 
-The **clusterNodes** property is used for specifying a comma-separated list of ip addresses for nodes in a Cassandra cluster. Note that all specified nodes must share the same port number. In the Cassandra vernacular, a node is also referred to as a cluster "contact point". The driver uses a cluster contact point to connect to the cluster and discover its topology. Only one node is required (the driver will automatically retrieve the addresses of the other nodes in the cluster); however, it is usually a good idea to provide more than one node, because if that single node is unavailable, the driver cannot connect to the Cassandra cluster. 
+The **clusterNodes** property is used for specifying a comma-separated list of ip addresses for nodes in a Cassandra cluster. Note that all specified nodes must share the same port number. In the Cassandra vernacular, a node is also referred to as a cluster [contact point](http://docs.datastax.com/en/drivers/java/3.0/com/datastax/driver/core/Cluster.Builder.html#addContactPoint-java.lang.String-). The driver uses a cluster contact point to connect to the cluster and discover its topology. Only one node is required (the driver will automatically retrieve the addresses of the other nodes in the cluster); however, it is usually a good idea to provide more than one node, because if that single node is unavailable, the driver cannot connect to the Cassandra cluster. 
 
 <u>Policies</u>
 
-The different policies supported by the driver. The example "cluster1" bean above depicts how these policies can be injected into the cluser bean.
+The different policies supported by the driver. 
 
 - LoadBalancingPolicy
 - ReconnectionPolicy
 - RetryPolicy
 - AddressTranslater
 - SpeculativeExecutionPolicy
+- TimestampGenerator
 
-Please refer to the 2.1 Java driver's API documentantion for a complete list of its policies and their descriptions. 
+The example "cluster1" bean above depicts how these policies can be injected into the cluser bean.
+
+Please refer to the 3.x Java driver's API documentantion for a complete list of its [policies](http://docs.datastax.com/en/drivers/java/3.0/com/datastax/driver/core/policies/Policies.html) and their descriptions. 
 
 <u>protocolOptions</u>
 
-The **protocolOptions** property is used for specifying the [ProtocolOptions](http://docs.datastax.com/en/drivers/java/2.1/com/datastax/driver/core/ProtocolOptions.html) to use for the discovered nodes. If you don't specify one, a default ProtocolOption is used. ProtocolOption is typically used for overriding the default port number of  9042. 
+The **protocolOptions** property is used for specifying the [ProtocolOptions](http://docs.datastax.com/en/drivers/java/3.0/com/datastax/driver/core/ProtocolOptions.html) to use for the discovered nodes. If you don't specify one, a default ProtocolOptions is used. ProtocolOptions is typically used for overriding the default port number of  9042. 
 
 <u>poolingOptions</u>
 
-The [options](http://docs.datastax.com/en/drivers/java/2.1/com/datastax/driver/core/PoolingOptions.html) associated with connection pooling. 
+The [options](http://docs.datastax.com/en/drivers/java/3.0/com/datastax/driver/core/PoolingOptions.html) associated with connection pooling. 
 
 <u>listOfPoolingOptions</u>
 
-The **listOfPoolingOptions** property specifies a list of org.org.metis.cassandra.PoolingOption beans that are njected into the [PoolingOptions](http://www.datastax.com/drivers/java/2.1/com/datastax/driver/core/PoolingOptions.html). You want to have a PoolingOption bean for LOCAL and REMOTE (HostDistance) nodes. For IGNORED nodes, the default for all those settings is 0 and cannot be changed. The cluster bean will inject this list of PoolingOption beans into the PoolingOptions. 
+The **listOfPoolingOptions** property specifies a list of org.org.metis.cassandra.PoolingOption beans that are injected into the [PoolingOptions](http://www.datastax.com/drivers/java/3.0/com/datastax/driver/core/PoolingOptions.html). You want to have a PoolingOption bean for LOCAL and REMOTE (HostDistance) nodes. For IGNORED nodes, the default for all those settings is 0 and cannot be changed. The cluster bean will inject this list of PoolingOption beans into the PoolingOptions. 
 
 <u>socketOptions</u>
 
-The **socketOptions** property is used for specifying low-level [SocketOptions](http://www.datastax.com/drivers/java/2.1/com/datastax/driver/core/SocketOptions.html) (e.g., keepalive, solinger, etc.) for the connections to the cluster nodes. 
+The **socketOptions** property is used for specifying low-level [SocketOptions](http://www.datastax.com/drivers/java/3.0/com/datastax/driver/core/SocketOptions.html) (e.g., keepalive, solinger, etc.) for the connections to the cluster nodes. 
 
 
 <h2 id="queryoptions"> </h2>
 <u>queryOptions</u>
 
-The **queryOptions** property is used for specifying options for the for the queries. For more details see [QueryOptions](http://www.datastax.com/drivers/java/2.1/com/datastax/driver/core/QueryOptions.html).   
+The **queryOptions** property is used for specifying options for the queries. For more details see [QueryOptions](http://www.datastax.com/drivers/java/3.0/com/datastax/driver/core/QueryOptions.html).   
 
 
 <h1 id="WhoMetis">So Who or What Was Metis?</h1>
