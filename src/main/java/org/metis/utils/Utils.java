@@ -38,6 +38,7 @@ import org.slf4j.LoggerFactory;
 import com.datastax.driver.core.DataType;
 import com.datastax.driver.core.TupleType;
 import com.datastax.driver.core.Metadata;
+import com.datastax.driver.core.LocalDate;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
@@ -248,6 +249,25 @@ public class Utils {
 			}
 		}
 		return sb.toString();
+	}
+
+	/**
+	 * Returns the LocalDate based on the given String. The String can be the
+	 * number of millis since epoch or year-month-day in the form "2014-12-32".
+	 * 
+	 * @param s
+	 * @return
+	 * @throws NumberFormatException
+	 */
+	public static LocalDate getLocalDate(String s) throws NumberFormatException {
+		if(s == null){
+			throw new NumberFormatException();
+		}
+		String tokens[] = s.split("-");
+		return (tokens.length == 3) ? LocalDate.fromYearMonthDay(
+				Integer.parseInt(tokens[0]), Integer.parseInt(tokens[1]),
+				Integer.parseInt(tokens[2])) : LocalDate
+				.fromMillisSinceEpoch(Long.parseLong(s));
 	}
 
 	/**

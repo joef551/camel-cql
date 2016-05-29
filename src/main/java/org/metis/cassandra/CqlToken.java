@@ -35,6 +35,7 @@ import com.datastax.driver.core.Row;
 import com.datastax.driver.core.TupleType;
 import com.datastax.driver.core.TupleValue;
 import com.datastax.driver.core.Session;
+import com.datastax.driver.core.LocalDate;
 
 import org.metis.utils.Utils;
 import org.slf4j.Logger;
@@ -239,6 +240,8 @@ public class CqlToken {
 			return ByteBuffer.wrap(value.getBytes());
 		case DECIMAL:
 			return new BigDecimal(value);
+		case DATE:
+			return Utils.getLocalDate(value);
 		case VARINT:
 			return new BigInteger(value);
 		case BOOLEAN:
@@ -296,8 +299,10 @@ public class CqlToken {
 			return row.getFloat(colName);
 		case DOUBLE:
 			return row.getDouble(colName);
-		case TIMESTAMP:
+		case DATE:
 			return row.getDate(colName);
+		case TIMESTAMP:
+			return row.getTimestamp(colName);
 		case TIMEUUID:
 		case UUID:
 			return row.getUUID(colName);
@@ -409,6 +414,14 @@ public class CqlToken {
 				bs.setDouble(pos, iDouble);
 			}
 			break;
+		case DATE:
+			LocalDate lDate = (LocalDate) getObjectValue(value);
+			for (Integer pos : getPositions()) {
+				LOG.trace("bindString: binding {} to position {}",
+						lDate.toString(), pos);
+				bs.setDate(pos, lDate);
+			}
+			break;
 		case TIMESTAMP:
 			Timestamp iDate = (Timestamp) getObjectValue(value);
 			for (Integer pos : getPositions()) {
@@ -518,6 +531,13 @@ public class CqlToken {
 			}
 			return map;
 		}
+		case DATE: {
+			Map<String, LocalDate> map = new HashMap<String, LocalDate>();
+			for (String key : inMap.keySet()) {
+				map.put(key, Utils.getLocalDate(inMap.get(key)));
+			}
+			return map;
+		}
 		case TIMESTAMP: {
 			Map<String, Date> map = new HashMap<String, Date>();
 			for (String key : inMap.keySet()) {
@@ -611,6 +631,13 @@ public class CqlToken {
 			}
 			return set;
 		}
+		case DATE: {
+			Set<LocalDate> set = new HashSet<LocalDate>();
+			for (String val : inSet) {
+				set.add(Utils.getLocalDate(val));
+			}
+			return set;
+		}
 		case TIMESTAMP: {
 			Set<Date> set = new HashSet<Date>();
 			for (String val : inSet) {
@@ -701,6 +728,13 @@ public class CqlToken {
 			List<Double> list = new ArrayList<Double>();
 			for (String val : inList) {
 				list.add(Double.valueOf(val));
+			}
+			return list;
+		}
+		case DATE: {
+			List<LocalDate> list = new ArrayList<LocalDate>();
+			for (String val : inList) {
+				list.add(Utils.getLocalDate(val));
 			}
 			return list;
 		}

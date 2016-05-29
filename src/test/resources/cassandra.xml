@@ -227,6 +227,7 @@
 		class="com.datastax.driver.core.policies.DowngradingConsistencyRetryPolicy" />
 
 	<bean id="metricsOptions" class="com.datastax.driver.core.MetricsOptions">
+		<constructor-arg name="enabled" value="true" />
 		<constructor-arg name="jmxEnabled" value="true" />
 	</bean>
 	<bean id="protocolOptions" class="com.datastax.driver.core.ProtocolOptions">
@@ -250,23 +251,23 @@
 	</bean>
 	<bean id="socketOptions" class="com.datastax.driver.core.SocketOptions" />
 	<bean id="poolingOptions" class="com.datastax.driver.core.PoolingOptions" />
-	<bean id="localOption" class="org.metis.cassandra.PoolingOption">
-		<property name="distance" value="local" />
+		<bean id="localOption" class="org.metis.cassandra.PoolingOption">
+		<property name="hostDistance">
+			<util:constant static-field="com.datastax.driver.core.HostDistance.LOCAL" />
+		</property>
 		<property name="coreConnectionsPerHost" value="5" />
 		<property name="maxConnectionsPerHost" value="10" />
-		<property name="maxSimultaneousRequestsPerConnectionThreshold"
-			value="2" />
-		<property name="maxSimultaneousRequestsPerHostThreshold"
-			value="5" />
+		<property name="newConnectionThreshold" value="2" />
+		<property name="maxRequestsPerConnection" value="5" />
 	</bean>
 	<bean id="remoteOption" class="org.metis.cassandra.PoolingOption">
-		<property name="distance" value="remote" />
+		<property name="hostDistance">
+			<util:constant static-field="com.datastax.driver.core.HostDistance.REMOTE" />
+		</property>
 		<property name="coreConnectionsPerHost" value="2" />
 		<property name="maxConnectionsPerHost" value="10" />
-		<property name="maxSimultaneousRequestsPerConnectionThreshold"
-			value="2" />
-		<property name="maxSimultaneousRequestsPerHostThreshold"
-			value="5" />
+		<property name="newConnectionThreshold" value="2" />
+		<property name="maxRequestsPerConnection" value="5" />
 	</bean>
 
 	<!-- An example of how to inject an Enum of ONE for the consistency level -->

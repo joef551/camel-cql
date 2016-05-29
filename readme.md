@@ -160,7 +160,7 @@ As previously described, the optional  **defaultMethod** property is used for sp
 
 Before proceeding with this next bean, lets recap what has been covered. A CQL component self-injects all [Client](#client) beans that it locates and these Client beans are injected with a set of CQL statements. Recall that you can either explicitly inject a set of CQL statements into the client or you can let the client self-inject all the CQL statements that it locates in its respective application context.   
  
-This section lists and describes all of the properties for the CQL statement bean. Most of these properties correlate to those found in the [Cassandra Statement](http://docs.datastax.com/en/drivers/java/2.1/com/datastax/driver/core/Statement.html) class.
+This section lists and describes all of the properties for the CQL statement bean. Most of these properties correlate to those found in the [Cassandra Statement](http://docs.datastax.com/en/drivers/java/3.0/com/datastax/driver/core/Statement.html) class.
 
 <u>statement</u>
 
@@ -193,11 +193,15 @@ The **statement** property is used to specify the actual CQL statement. Here's t
 
 Note that three of the statements have fields delimited by backticks (e.g., \`list:text:email\`). These are *parameterized fields* that comprise 2 or 3 subfields, which are delimited by a ":" character. So any CQL statement with one or more parameterized fields is treated as a CQL prepared statement. A CQL prepared statement's parameterized fields are used for binding input parameters, which arrive via the CQL endpoint's incoming request message, to the prepared statement. 
 
-The first subfield (from right-to-left) of a parameterized field is required, and it specifies the name of the input parameter that corresponds to the field. In other words, it must match the key name of a `key:value` pair that is passed in via an incoming request message. In the "select2" example statement above, "username" is the key name of the input parameter. The next subfield, which is also required, is the type of input parameter, and it must match one of the Cassandra [data types](http://www.datastax.com/drivers/java/2.1/com/datastax/driver/core/DataType.Name.html). The last subfield, which is optional, is used to specify a collection (list, map, or set). Here are a some examples:
+The first subfield (from right-to-left) of a parameterized field is required, and it specifies the name of the input parameter that corresponds to the field. In other words, it must match the key name of a `key:value` pair that is passed in via an incoming request message. In the "select2" example statement above, "username" is the key name of the input parameter. 
+
+The second subfield, which is also required, is the type of input parameter, and it must match one of the Cassandra [data types](http://www.datastax.com/drivers/java/3.0/com/datastax/driver/core/DataType.Name.html). Also see [CQL data types to Java types](http://docs.datastax.com/en/developer/java-driver/3.0/java-driver/reference/javaClass2Cql3Datatypes.html). Please note that the Date type is a Cassandra [LocalDate](http://docs.datastax.com/en/drivers/java/3.0/com/datastax/driver/core/LocalDate.html) and must be passed in as either a number of milliseconds since January 1st, 1970 GMT or of the form '2014-12-32'; i.e., year-month-day.
+
+The third and last subfield, which is optional, is used to specify a collection (list, map, or set). Here are a some examples:
 
 1. **\`list:text:email\`** is a parameterized field that is matched up to an input parameter whose key name is 'email' and whose value is a list of ascii text strings. 
 2. **\`text:username\`** is a parameterized field that is matched up to an input parameter whose key name is 'username' and whose value is an ascii text string. 
-3. **\`tuple:userinfo\`** is a parameterized field that is matched up to an input parameter whose key name is 'userinfo' and whose value is a tuple. A Cassandra [tuple](http://docs.datastax.com/en/developer/java-driver/2.1/java-driver/reference/tupleTypes.html) is passed in as a List of arbitrary objects. That list is used to create a Cassandra TupleType, from which a corresponding TupleValue is created and bound to the target prepared statement. ***N.B., Since tuples are passed in as a List of arbitrary object types and this component does not rely on a JSON schema, tuples cannot be passed in as part of a JSON object. Tuples must, instead, be passed in as a List that is an element of a Map whose key matches that of the parameterized field. A Tuple is returned as a List of objects. ***  
+3. **\`tuple:userinfo\`** is a parameterized field that is matched up to an input parameter whose key name is 'userinfo' and whose value is a tuple. A Cassandra [tuple](http://docs.datastax.com/en/developer/java-driver/3.0/java-driver/reference/tupleTypes.html) is passed in as a List of arbitrary objects. That list is used to create a Cassandra TupleType, from which a corresponding TupleValue is created and bound to the target prepared statement. ***N.B., Since tuples are passed in as a List of arbitrary object types and this component does not rely on a JSON schema, tuples cannot be passed in as part of a JSON object. Tuples must, instead, be passed in as a List that is an element of a Map whose key matches that of the parameterized field. A Tuple is returned as a List of objects. ***  
 
 Note from [1] about using collections. <i>"Use collections, such as Set, List or Map, when you want to store or denormalize a small amount of data. Values of items in collections are limited to 64K. Other limitations also apply. Collections work well for storing data such as the phone numbers of a user and labels applied to an email. If the data you need to store has unbounded growth potential, such as all the messages sent by a user or events registered by a sensor, do not use collections. Instead, use a table having a compound primary key and store data in the clustering columns".</i>
 
@@ -221,21 +225,21 @@ When a request message arrives at a CQL endpoint, in the form of a Camel in-mess
 
 <u>fetchSize</u>
 
-The **fetchSize**, which is used exclusively by the SELECT statement, controls how many rows will be returned as part of a result set (the goal being to avoid loading too much results in memory for queries yielding large results). In other words, the fetchSize defines the page size that is returned by Cassandra. Please note that while a value as low as 1 can be used, it is **highly** discouraged to use such a low value in practice, as it will yield very poor performance. If in doubt, using the [default](http://docs.datastax.com/en/drivers/java/2.1/com/datastax/driver/core/QueryOptions.html#DEFAULT_FETCH_SIZE) is probably a good idea. You can override the **global** default size via the [QueryOptions](#queryoptions). The statement's fetchSize property takes precedence over the global default value. 
+The **fetchSize**, which is used exclusively by the SELECT statement, controls how many rows will be returned as part of a result set (the goal being to avoid loading too much results in memory for queries yielding large results). In other words, the fetchSize defines the page size that is returned by Cassandra. Please note that while a value as low as 1 can be used, it is **highly** discouraged to use such a low value in practice, as it will yield very poor performance. If in doubt, using the [default](http://docs.datastax.com/en/drivers/java/3.0/com/datastax/driver/core/QueryOptions.html#DEFAULT_FETCH_SIZE) is probably a good idea. You can override the **global** default size via the [QueryOptions](#queryoptions). The statement's fetchSize property takes precedence over the global default value. 
 
 <u>pagingState</u>
 
-The **pagingState** boolean property sets whether to use the [paging state](http://docs.datastax.com/en/drivers/java/2.1/com/datastax/driver/core/PagingState.html) when fetching result sets. If set to true, this will cause the next execution of a particular SELECT statement to fetch results from the next page of a result set, rather than restarting from the beginning. The paging state must be used across multiple invocations of the same SELECT CQL statement.  When pagingState is set to true, the CQL endpoint returns the current paging state as a String object via the out message's "**metis.cql.paging.state**" header. A subsequent invocation of the SELECT method then specifies the current paging state via the in message's "**metis.cql.paging.state**" header. The CQLStmnt is stateless, thus it is upto the calling application/route to maintain this state information across multiple invocations of the CQLStmnt. 
+The **pagingState** boolean property sets whether to use the [paging state](http://docs.datastax.com/en/drivers/java/3.0/com/datastax/driver/core/PagingState.html) when fetching result sets. If set to true, this will cause the next execution of a particular SELECT statement to fetch results from the next page of a result set, rather than restarting from the beginning. The paging state must be used across multiple invocations of the same SELECT CQL statement.  When pagingState is set to true, the CQL endpoint returns the current paging state as a String object via the out message's "**metis.cql.paging.state**" header. A subsequent invocation of the SELECT method then specifies the current paging state via the in message's "**metis.cql.paging.state**" header. The CQLStmnt is stateless, thus it is upto the calling application/route to maintain this state information across multiple invocations of the CQLStmnt. 
 
 For more information on paging and the fetchSize, please click [here](http://datastax.github.io/java-driver/features/paging/). 
 
 <u>consistencyLevel</u>
 
-The **[consistencyLevel](http://docs.datastax.com/en/drivers/java/2.1/com/datastax/driver/core/ConsistencyLevel.html)** property sets the consistency level for the corresponding query. 
+The **[consistencyLevel](http://docs.datastax.com/en/drivers/java/3.0/com/datastax/driver/core/ConsistencyLevel.html)** property sets the consistency level for the corresponding query. 
 
 <u>serialConsistencyLevel</u>
 
-The **[serialConsistencyLevel](http://docs.datastax.com/en/drivers/java/2.1/com/datastax/driver/core/ConsistencyLevel.html)** property sets the serial consistency level for the corresponding query. The serial consistency level is only used by conditional updates (so INSERT, UPDATE and DELETE with an IF condition). For those, the serial consistency level defines the consistency level of the serial phase (or "paxos" phase) while the normal consistency level defines the consistency for the "learn" phase, i.e. what type of reads will be guaranteed to see the update right away. The serial consistency level is ignored for any query that is not a conditional update (serial reads should use the regular consistency level for instance). 
+The **[serialConsistencyLevel](http://docs.datastax.com/en/drivers/java/3.0/com/datastax/driver/core/ConsistencyLevel.html)** property sets the serial consistency level for the corresponding query. The serial consistency level is only used by conditional updates (so INSERT, UPDATE and DELETE with an IF condition). For those, the serial consistency level defines the consistency level of the serial phase (or "paxos" phase) while the normal consistency level defines the consistency for the "learn" phase, i.e. what type of reads will be guaranteed to see the update right away. The serial consistency level is ignored for any query that is not a conditional update (serial reads should use the regular consistency level for instance). 
 
 <u>defaultTimestamp</u>
 
@@ -244,11 +248,11 @@ This feature is only available when version V3 or higher of the native protocol 
 
 <u>idempotent</u>
 
-The **idempotent** property sets whether this statement is idempotent. Idempotence plays a role in [speculative executions](http://docs.datastax.com/en/drivers/java/2.1/com/datastax/driver/core/policies/SpeculativeExecutionPolicy.html). If a statement is not idempotent, the driver will not schedule speculative executions for it.
+The **idempotent** property sets whether this statement is idempotent. Idempotence plays a role in [speculative executions](http://docs.datastax.com/en/drivers/java/3.0/com/datastax/driver/core/policies/SpeculativeExecutionPolicy.html). If a statement is not idempotent, the driver will not schedule speculative executions for it.
 
 <u>retryPolicy</u>
 
-The **[retryPolicy](http://docs.datastax.com/en/drivers/java/2.1/com/datastax/driver/core/policies/RetryPolicy.html)** sets the retry policy to use for this query. The default retry policy, if this method is not called, is the one returned by Policies.getRetryPolicy() in the cluster configuration. This method is thus only useful in case you want to punctually override the default policy for this request.
+The **[retryPolicy](http://docs.datastax.com/en/drivers/java/3.0/com/datastax/driver/core/policies/RetryPolicy.html)** sets the retry policy to use for this query. The default retry policy, if this method is not called, is the one returned by Policies.getRetryPolicy() in the cluster configuration. This method is thus only useful in case you want to punctually override the default policy for this request.
 
 
 
