@@ -60,7 +60,7 @@ public class AutoInjectTest {
 			assertTrue(cc.getClients().get("user").getClusterBean().getBeanName().equals("cluster1"));
 			assertTrue(cc.getClients().get("user").getClusterBean().getListOfPoolingOptions().size() == 2);
 			assertTrue(cc.getClients().get("user").getClusterBean().getProtocolOptions().getPort() == 9042);
-			assertTrue(cc.getClients().get("user").getClusterBean().getProtocolOptions().getProtocolVersion().toInt() == 2);
+			assertTrue(cc.getClients().get("user").getClusterBean().getProtocolOptions().getProtocolVersion().toInt() == 4);
 			assertTrue(cc.getClients().get("user").getClusterBean().getProtocolOptions().getMaxSchemaAgreementWaitSeconds() == 2);
 			assertTrue(cc.getClients().get("user").getClusterBean().getListOfPoolingOptions().get(0).getHostDistance() == LOCAL);
 			assertTrue(cc.getClients().get("user").getClusterBean().getListOfPoolingOptions().get(0).getCoreConnectionsPerHost() == 5);

@@ -45,11 +45,11 @@ import static org.metis.utils.Constants.JSON_STR;
 
 /**
  * Represents a string token of a CQL statement. There are two types: regular
- * and key. A regular token is a CQL key word, while a key-token represents a
- * parameterized field of the CQL statement. A parameterized field is comprised
- * of two or three parts (cql-type, collection-type, key) and is delimited by
- * '`'. For example, `ascii:first` represents a String whose key name is
- * 'first'. For example: <code>
+ * and key. A regular token is a CQL keyword, while a key token represents a
+ * parameterized field of the CQL statement. A key token or parameterized field
+ * is comprised of two or three parts (collection-type, cql-type, key) and is
+ * delimited by '`'. For example, `ascii:first` represents a String whose key
+ * name is 'first'. For example: <code>
  * select first from users where first like `string:first` || '%'
  * </code> Another example, `set:long:user_ids` represents a set of Longs where
  * element in the set is a user id.
@@ -87,8 +87,8 @@ public class CqlToken {
 			this.collectionType = this.cqlType;
 		}
 
-		// the key, which always equals the value propert, is used to id this
-		// token as a parameter field as opposed to a token that represents a
+		// the key, which always equals the value property, is used to id this
+		// token as a parameter field, as opposed to a token that represents a
 		// CQL keyword. A keyword token will have its key property set to null
 		this.key = key.toLowerCase();
 		this.value = this.key;
@@ -136,12 +136,8 @@ public class CqlToken {
 		}
 	}
 
-	// public static boolean isCollection(DataType.Name type) {
-	// return type.isCollection();
-	// }
-
 	/**
-	 * Create a non-parameterized token.
+	 * Create a non-parameterized or regular token.
 	 * 
 	 * @param value
 	 */

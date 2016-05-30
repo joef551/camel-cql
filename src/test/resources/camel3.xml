@@ -85,7 +85,7 @@
 		<constructor-arg name="protocolVersion">
 			<bean id="protocolVersion" class="com.datastax.driver.core.ProtocolVersion"
 				factory-method="fromInt">
-				<constructor-arg value="2" />
+				<constructor-arg value="4" />
 			</bean>
 		</constructor-arg>
 		<constructor-arg name="maxSchemaAgreementWaitSeconds"

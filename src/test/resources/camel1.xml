@@ -114,6 +114,8 @@
 	</bean>
 
 
+	<!-- The ClusterBean is used as the access point to a Cassandra cluster. 
+		It interfaces to the Cassandra Java driver. -->
 	<bean id="cluster1" class="org.metis.cassandra.ClusterBean">
 		<property name="clusterName" value="myCluster" />
 		<property name="clusterNodes" value="127.0.0.1" />
@@ -154,7 +156,7 @@
 		<constructor-arg name="protocolVersion">
 			<bean id="protocolVersion" class="com.datastax.driver.core.ProtocolVersion"
 				factory-method="fromInt">
-				<constructor-arg value="2" />
+				<constructor-arg value="4" />
 			</bean>
 		</constructor-arg>
 		<constructor-arg name="maxSchemaAgreementWaitSeconds"

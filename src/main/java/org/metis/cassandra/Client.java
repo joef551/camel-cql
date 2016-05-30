@@ -102,6 +102,11 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 	 */
 	public void afterPropertiesSet() throws Exception {
 
+		if (!isAutoInject()) {
+			LOG.info(getBeanName() + ": disabled!");
+			return;
+		}
+
 		// the client must be wired to a ClusterBean, which is used for
 		// accessing a Cassandra cluster. If the Client is not wired to a
 		// ClusterBean, then look for one in the application context
@@ -382,14 +387,14 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 							+ "List elements are not of type Map");
 				}
 				// ensure all values in key-value pairs are Strings
-				//payLoad = Utils.objToString((Object) payLoad);
+				// payLoad = Utils.objToString((Object) payLoad);
 				listMap = (List) payLoad;
 			} else if (payLoad instanceof Map) {
 				LOG.trace(getBeanName()
 						+ ":camelProcess: received payload as Map with "
 						+ "size = {}", ((Map) payLoad).size());
 				// ensure all values in key-value pairs are Strings
-				//payLoad = Utils.objToString((Object) payLoad);
+				// payLoad = Utils.objToString((Object) payLoad);
 				listMap = new ArrayList<Map<Object, Object>>();
 				listMap.add((Map) payLoad);
 			} else {

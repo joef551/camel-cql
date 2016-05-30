@@ -94,5 +94,25 @@ CREATE TABLE IF NOT EXISTS video_event (
    PRIMARY KEY ((videoid,username),event_timestamp,event)
 ) WITH CLUSTERING ORDER BY (event_timestamp DESC,event ASC);
 
+CREATE TABLE IF NOT EXISTS field_test (
+   test_uuid uuid,
+   test_varchar varchar,
+   test_boolean boolean,   
+   test_date date,
+   test_decimal decimal,
+   test_double double,
+   test_float float,
+   test_inet inet,
+   test_int int,
+   test_smallint smallint,
+   test_text text,
+   test_time time,
+   test_timestamp timestamp,
+   test_timeuuid timeuuid,
+   test_tinyint tinyint,   
+   test_varint varint,   
+   PRIMARY KEY (test_uuid)
+);
+
 
 

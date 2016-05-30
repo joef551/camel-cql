@@ -4,8 +4,8 @@
 
 [Apache Camel](http://camel.apache.org)<font size="1"><sup>TM</sup></font> is a powerful and feature-rich open source integration framework whose goal is, in part, to facilitate the implementation of enterprise integration patterns. Camel supports or implements  most of the integration patterns that are described in the book by Bobby Woolf and Gregor Hohpe entitled, ["Enterprise Integration Patterns"](http://www.enterpriseintegrationpatterns.com "EIP" ). In the Camel vernacular, patterns are also referred to as routes. Camel is the integration framework for the open source [ServiceMix](http://servicemix.apache.org) enterprise service bus (ESB); however, Camel can also be used as a standalone integration framework. Camel includes a number of different [components](http://camel.apache.org/component.html), where each component can be viewed as a connector to an API, framework, protocol, and/or data store. For example, there are components  for smtp, ftp, tcp, file, sql, jdbc, jetty, etc. There must now be over 50 different components and the number just keeps growing. Camel routes are message patterns that are used, in part, for integrating these components. For example, you may have a route that reads messages from a JMS queue and persists the messages to different database tables. The different routing possibilities are endless. The "[Camel In Action](http://www.manning.com/ibsen/)" book is a must-read for anyone getting started with Camel. 
 
-[Apache Cassandra](http://cassandra.apache.org)<font size="1"><sup>TM</sup></font> is a massively scalable open source NoSQL database management system (DBMS) [1]. Cassandra is highly fault-tolerant and based on the Columnar or ColumnFamily data model; think of it as a highly distributed hash table. Cassandra includes a SQL-like programming language called, "[Cassandra Query Language](http://www.datastax.com/documentation/cql/3.1/cql/cql_intro_c.html)" (CQL), which is the default and primary interface into the Cassandra DBMS. Using CQL is similar to using SQL in that the concept of a table having rows and columns is almost the same in CQL and SQL. The main difference is that Cassandra does not support joins or subqueries, except for batch analysis through Hive. Instead, Cassandra emphasizes denormalization through CQL features like collections and clustering specified at the schema level [1]. CQL is the recommended way to interact with Cassandra. The simplicity of reading and using CQL is an advantage over older Cassandra APIs.The goal of this project is to provide a highly configurable and flexible Camel component for CQL. The CQL component allows one to create Camel routes that integrate with the Cassandra DBMS. The initial release of this component supports a Camel producer (e.g., `to()`), but not consumer. The producer provides the basic CRUD (create, read, update, delete) functionality and implements the InOut message exchange pattern (MEP). 
-Unlike other Camel Cassandra components (e.g., http://camel.apache.org/cassandra.html), this component completely decouples the Camel route from the CQL query statement and the corresponding [Cassandra Cluster](http://docs.datastax.com/en/drivers/java/3.0/com/datastax/driver/core/Cluster.html) component, which is treated as a separate Cassandra connection pool. So one may define many Cassandra routes that can dynamically access any set of CQL query [prepared] statements and the statments themselves, in turn, access a Cassandra cluster. It is a set of key:value pairs, which is conveyed through the Camel Exchange message body, that binds the Exchange to a particular CQL query statement. So a route is used as a conduit for dynamically binding Exchange messages to CQL queries. Exchange message bodies are also optional for those cases where a set of key:value pairs is not required to invoke the CQL query. So the upshot is that there is no need to specify a CQL query within the Exchange message nor as a component URI option.    
+[Apache Cassandra](http://cassandra.apache.org)<font size="1"><sup>TM</sup></font> is a massively scalable open source NoSQL database management system (DBMS) [1]. Cassandra is highly fault-tolerant and based on the Columnar or ColumnFamily data model; think of it as a highly distributed hash table. Cassandra includes a SQL-like programming language called, "[Cassandra Query Language](http://www.datastax.com/documentation/cql/3.1/cql/cql_intro_c.html)" (CQL), which is the default and primary interface into the Cassandra DBMS. Using CQL is similar to using SQL in that the concept of a table having rows and columns is almost the same in CQL and SQL. The main difference is that Cassandra does not support joins or subqueries, except for batch analysis through Hive. Instead, Cassandra emphasizes denormalization through CQL features like collections and clustering specified at the schema level [1]. CQL is the recommended way to interact with Cassandra. The simplicity of reading and using CQL is an advantage over older Cassandra APIs.The goal of this project is to provide a highly configurable and flexible Camel component for CQL. The CQL component allows one to create Camel routes that integrate with the Cassandra DBMS. The initial release of this component supports a Camel producer (e.g., `to()`), but not consumer. The producer provides the basic CRUD (create, read, update, delete) functionality and implements the InOut Camel message exchange pattern (MEP). 
+Unlike other Camel Cassandra components (e.g., http://camel.apache.org/cassandra.html), this component decouples the Camel route from the CQL query statement. So one may define many Cassandra routes that can dynamically access a given set of CQL query [prepared] statements. It is a set of key:value pairs, which is conveyed through the Camel Exchange message body, that binds the Exchange to a particular CQL query statement. So a route is used as a conduit for dynamically binding an Exchange messages to a CQL statement, then invoking that statement. Exchange message bodies are also optional for those cases where a set of key:value pairs is not required to invoke the CQL query. So the upshot is that there is no need to specify a CQL query within the Exchange message nor as a component URI option.    
 
 <h1 id="URI Format">URI Format</h1>
 ```
@@ -36,9 +36,20 @@ A Cassandra CQL component is configured through either one of the following:
 </camelContext>
 ``` 
 
-The above snippet defines a CQL component called "cql1" that is referenced by a Camel route called "camel1-route". The CQL component will search for an external configuration file called, "mycfg.xml".  
+The above snippet specifically defines a CQL component called "cql1" that is referenced by a Camel route called "camel1-route". The "cql1" CQL component will search for an external configuration file called, "mycfg.xml" in the classpath. If found, the component will self-inject itself with [Client](#client) beans in "mycfg.xml", as well as any [Client](#client) beans found in the route's hosting application context (i.e., hosting Camel registry).   
 
-Note that if you take configuration approach #1 above, the corresponding CQL component will still look for an external "cassandra.xml" file and if one is found, the CQL component will auto-inject any [Client](#client) beans found in that external file, as well as those [Client](#client) beans found in the hosting Camel XML file (a.k.a., Camel registry). The client bean is described in the following section. 
+The following snippet defines a route that uses the default CQL component. As such, the CQL component will search for the external "cassandra.xml" file in the classpath and if one is found, the component will self-inject itself with any [Client](#client) beans found in the  "cassandra.xml" file, as well as any [Client](#client) beans found in the route's hosting application context.
+
+```xml
+<camelContext xmlns="http://camel.apache.org/schema/spring">
+  <route id="camel1-route">
+ 	<from uri="seda:cassy" />
+	<to uri="cql:user"/>
+  </route>
+</camelContext>
+``` 
+
+The [Client](#client) bean is described in the following section. 
 
 Via either of the two configuration approaches described above, you define and configure the beans described in the following subsections. As you read through the following subsections, please keep in mind the use of [Camel property placeholders](http://camel.apache.org/using-propertyplaceholder.html), which provide for dynamic configurations.  
 
@@ -49,11 +60,11 @@ For example configuration files, see the set of XML files in the project's .../t
 <h2 id="client">Client</h2>
 
 
-The [Client](#client) bean is a thread-safe component that is used by the CQL component for accessing a Cassandra cluster, a keyspace within the cluster, and any tables within the keyspace. You can define any number of client beans, and the CQL component will automatically inject itself with all the client beans that it locates within its application context. So there is no need to explicitly wire the CQL component to the client beans. 
+The [Client](#client) bean is a thread-safe component that is used by the CQL component for accessing a Cassandra cluster, a keyspace within the cluster, and any tables within the keyspace. You can define any number of Client beans, and the CQL component will automatically inject itself with all the Client beans that it locates within its application context. So there is no need to explicitly wire the CQL component to the Client beans. 
 
-The CQL endpoint's URI is used to identify the target client bean. For example, a URI endpoint of `cql:user` specifies the client bean with an id of "user", which may logically be used for accessing the "user" table in a Cassandra keyspace. Also see [Client Mapper](#clientmapper) for using ant-style pattern matching to identify a client bean. Using a Camel [property place holder](http://camel.apache.org/properties.html), such as `cql:{{client}}` , you can make the endpoint that much more dynamically configurable. 
+The CQL endpoint's URI is used to identify the target Client bean. For example, a URI endpoint of `cql:user` specifies the Client bean with an id of "user", which may logically be used for accessing the "user" table in a Cassandra keyspace. Also see [Client Mapper](#clientmapper) for using ant-style pattern matching to identify a client bean. Using a Camel [property place holder](http://camel.apache.org/properties.html), such as `cql:{{client}}` , you can make the endpoint that much more dynamically configurable. 
 
-Each client bean that you define must be assigned one or more [CQL statements](#cqlstatement), which can be any combination of SELECT, UPDATE, DELETE, and INSERT CQL query methods. A CQL endpoint's incoming request message (i.e., Camel in message) specifies one of the four query methods, as well as zero or more input parameters (key:value pairs). The combination of specified query method and input parameters is used to identify which one of the client's CQL statements the input parameters will get bound to. The query method is specified in the Camel Exchange's input message via a header called, "**metis.cassandra.method**". If that header is not present, the client will fall back on a default query method. The default query method can be either injected into the client or you can have the client choose a default method based on its injected CQL statements. You can inject the default method via the 'defaultMethod' property. For example:
+Each Client bean that you define must be assigned one or more [CQL statements](#cqlstatement), which can be any combination of SELECT, UPDATE, DELETE, and INSERT CQL query methods. A CQL endpoint's incoming request message (i.e., Camel in message) specifies one of the four query methods, as well as zero or more input parameters (key:value pairs). The combination of specified query method and input parameters is used to identify which one of the client's CQL statements the input parameters will get bound to. The query method is specified in the Camel Exchange's input message via a header called, "**metis.cassandra.method**". If that header is not present, the client will fall back on a default query method. The default query method can be either injected into the client or you can have the client choose a default method based on its injected CQL statements. You can inject the default method via the 'defaultMethod' property. For example:
 
 ```xml
 <bean id="user" class="org.metis.cassandra.Client">
@@ -154,6 +165,19 @@ As previously described, the optional  **defaultMethod** property is used for sp
 	</property>
 </bean>
 ```
+
+<u>autoInject</u>
+
+The **autoInject** property is used to essentially disable the Client bean. So if the property is set to "false", it will not initialize itselft and is also not auto-injected by any CQL component. For example, the following "userfoo" Client bean will never get injected into any CQL component.
+
+```xml
+<bean id="userfoo" class="org.metis.cassandra.Client">
+  <property name="autoInject" value="false" />
+  <property name="keyspace" value="videodb" />
+  <property name="clusterBean" ref="cluster1" />
+</bean>
+```
+
 
 
 <h2 id="cqlstatement">CQL Statement</h2>

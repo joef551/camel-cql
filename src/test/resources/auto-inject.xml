@@ -58,6 +58,14 @@
 		<property name="queryOptions" ref="queryOptions" />
 	</bean>
 
+	<!-- A Client bean called userfoo that is not auto-injected and effectively 
+		is disabled -->
+	<bean id="userfoo" class="org.metis.cassandra.Client">
+		<property name="autoInject" value="false" />
+		<property name="keyspace" value="videodb" />
+		<property name="clusterBean" ref="cluster1" />
+	</bean>
+
 	<!-- Referenced Beans -->
 	<bean id="roundRobin" class="com.datastax.driver.core.policies.RoundRobinPolicy" />
 	<bean id="reconnectionPolicy"
@@ -79,7 +87,7 @@
 		<constructor-arg name="protocolVersion">
 			<bean id="protocolVersion" class="com.datastax.driver.core.ProtocolVersion"
 				factory-method="fromInt">
-				<constructor-arg value="2" />
+				<constructor-arg value="4" />
 			</bean>
 		</constructor-arg>
 		<constructor-arg name="maxSchemaAgreementWaitSeconds"

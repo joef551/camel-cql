@@ -31,8 +31,8 @@ public class Constants {
 	public static final char TAB_CHR = '\t';
 	public static final char NEWLINE_CHR = '\n';
 	public static final char CARRIAGE_RETURN_CHR = '\r';
-	public static final char BACK_QUOTE_CHR = '`'; // also called a 'grave
-													// accent'
+	// back quote is called a 'grave accent'
+	public static final char BACK_QUOTE_CHR = '`'; 
 	public static final String BACK_QUOTE_STR = "`";
 	public static final char SINGLE_QUOTE_CHR = '\'';
 	public static final String LEFT_BRACE_STR = "{";

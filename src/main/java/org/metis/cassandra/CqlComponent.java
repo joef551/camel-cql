@@ -448,7 +448,7 @@ public class CqlComponent extends DefaultComponent {
 			registry = getCamelContext().getRegistry();
 		}
 
-		// try and load the external SPring XML file
+		// try and load the external Spring XML file
 		try {
 			cassandraContext = new ClassPathXmlApplicationContext(
 					getContextFileName());
@@ -458,9 +458,10 @@ public class CqlComponent extends DefaultComponent {
 			LOG.warn("initComponent: caught this exception while "
 					+ "attempting to load spring context file: "
 					+ exc.toString());
-			// throw exc;
 		}
 
+		// if the external Cassandra context was acquired but did not contain
+		// any clients, then close it out and dereference it
 		if (getClients() == null || getClients().isEmpty()) {
 			if (cassandraContext != null) {
 				cassandraContext.close();
@@ -580,7 +581,12 @@ public class CqlComponent extends DefaultComponent {
 		if (clients == null || clients.isEmpty()) {
 			return;
 		}
-		this.clients.putAll(clients);
+		for (Map.Entry<String, Client> entry : clients.entrySet()) {
+			if (entry.getValue().isAutoInject()) {
+				this.clients.put(entry.getKey(), entry.getValue());
+			}
+		}
+
 	}
 
 	// ---------- End Initialization Methods -----------------------
