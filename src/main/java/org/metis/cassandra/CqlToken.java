@@ -13,6 +13,8 @@
  */
 package org.metis.cassandra;
 
+import java.text.DateFormat;
+import java.text.ParseException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -22,8 +24,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.sql.Date;
-import java.sql.Timestamp;
+import java.util.Date;
 import java.nio.ByteBuffer;
 import java.net.InetAddress;
 import java.net.MalformedURLException;
@@ -188,16 +189,18 @@ public class CqlToken {
 	}
 
 	/**
-	 * Binds an object to a BoundStatement
+	 * Binds an object, which is provided by the calling application, to a
+	 * BoundStatement.
 	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void bindObject(Session session, BoundStatement bs, Object obj)
 			throws Exception {
 		LOG.trace("bindObject: entered with this type {}", obj.getClass()
-				.getName());
+				.getName());		
 		if (obj instanceof String) {
 			bindString(bs, (String) obj);
-		} else if (obj instanceof Map) {
+		}
+		else if (obj instanceof Map) {
 			bindMap(bs, (Map) obj);
 		} else if (obj instanceof List) {
 			if (getCollectionType() == DataType.Name.TUPLE) {
@@ -208,7 +211,10 @@ public class CqlToken {
 		} else if (obj instanceof Set) {
 			bindSet(bs, (Set) obj);
 		} else {
-			throw new Exception("unknown type of " + obj.getClass().getName());
+			Class classZ = obj.getClass();
+			for (Integer pos : getPositions()) {
+				bs.set(pos, obj, classZ);
+			}
 		}
 	}
 
@@ -222,7 +228,10 @@ public class CqlToken {
 	 */
 	public Object getObjectValue(String value) throws NumberFormatException,
 			IllegalArgumentException, MalformedURLException,
-			UnknownHostException {
+			UnknownHostException, ParseException {
+
+		LOG.trace("getObjectValue: entered with this value {}, my type is {}",
+				value, getCqlType());
 
 		if (!isKey()) {
 			return null;
@@ -255,15 +264,20 @@ public class CqlToken {
 			return InetAddress.getByName(value);
 		case INT:
 			return Integer.valueOf(value);
+		case SMALLINT:
+			return Short.valueOf(value);
+		case TINYINT:
+			return Byte.valueOf(value);
 		case BIGINT:
 		case COUNTER:
+		case TIME:
 			return Long.valueOf(value);
 		case FLOAT:
 			return Float.valueOf(value);
 		case DOUBLE:
 			return Double.valueOf(value);
 		case TIMESTAMP:
-			return Timestamp.valueOf(value);
+			return DateFormat.getDateInstance().parse(value);
 		case TIMEUUID:
 		case UUID:
 			return UUID.fromString(value);
@@ -288,8 +302,13 @@ public class CqlToken {
 			return row.getInet(colName);
 		case INT:
 			return row.getInt(colName);
+		case SMALLINT:
+			return row.getShort(colName);
+		case TINYINT:
+			return row.getByte(colName);
 		case BIGINT:
 		case COUNTER:
+		case TIME:
 			return row.getLong(colName);
 		case FLOAT:
 			return row.getFloat(colName);
@@ -385,8 +404,25 @@ public class CqlToken {
 				bs.setInt(pos, integer);
 			}
 			break;
+		case SMALLINT:
+			Short shorty = (Short) getObjectValue(value);
+			for (Integer pos : getPositions()) {
+				LOG.trace("bindString: binding {} to position {}",
+						shorty.toString(), pos);
+				bs.setShort(pos, shorty);
+			}
+			break;
+		case TINYINT:
+			Byte mb = (Byte) getObjectValue(value);
+			for (Integer pos : getPositions()) {
+				LOG.trace("bindString: binding {} to position {}",
+						mb.toString(), pos);
+				bs.setByte(pos, mb);
+			}
+			break;
 		case BIGINT:
 		case COUNTER:
+		case TIME:
 			Long ilong = (Long) getObjectValue(value);
 			for (Integer pos : getPositions()) {
 				LOG.trace("bindString: binding {} to position {}",
@@ -419,7 +455,7 @@ public class CqlToken {
 			}
 			break;
 		case TIMESTAMP:
-			Timestamp iDate = (Timestamp) getObjectValue(value);
+			Date iDate = (Date) getObjectValue(value);
 			for (Integer pos : getPositions()) {
 				LOG.trace("bindString: binding {} to position {}",
 						iDate.toString(), pos);
@@ -505,7 +541,22 @@ public class CqlToken {
 			}
 			return map;
 		}
+		case SMALLINT: {
+			Map<String, Short> map = new HashMap<String, Short>();
+			for (String key : inMap.keySet()) {
+				map.put(key, Short.valueOf(inMap.get(key)));
+			}
+			return map;
+		}
+		case TINYINT: {
+			Map<String, Byte> map = new HashMap<String, Byte>();
+			for (String key : inMap.keySet()) {
+				map.put(key, Byte.valueOf(inMap.get(key)));
+			}
+			return map;
+		}
 		case BIGINT:
+		case TIME:
 		case COUNTER: {
 			Map<String, Long> map = new HashMap<String, Long>();
 			for (String key : inMap.keySet()) {
@@ -537,7 +588,7 @@ public class CqlToken {
 		case TIMESTAMP: {
 			Map<String, Date> map = new HashMap<String, Date>();
 			for (String key : inMap.keySet()) {
-				map.put(key, Date.valueOf(inMap.get(key)));
+				map.put(key, DateFormat.getDateInstance().parse(inMap.get(key)));
 			}
 			return map;
 		}
@@ -605,7 +656,22 @@ public class CqlToken {
 			}
 			return set;
 		}
+		case SMALLINT: {
+			Set<Short> set = new HashSet<Short>();
+			for (String val : inSet) {
+				set.add(Short.valueOf(val));
+			}
+			return set;
+		}
+		case TINYINT: {
+			Set<Byte> set = new HashSet<Byte>();
+			for (String val : inSet) {
+				set.add(Byte.valueOf(val));
+			}
+			return set;
+		}
 		case BIGINT:
+		case TIME:
 		case COUNTER: {
 			Set<Long> set = new HashSet<Long>();
 			for (String val : inSet) {
@@ -637,7 +703,7 @@ public class CqlToken {
 		case TIMESTAMP: {
 			Set<Date> set = new HashSet<Date>();
 			for (String val : inSet) {
-				set.add(Date.valueOf(val));
+				set.add(DateFormat.getDateInstance().parse(val));
 			}
 			return set;
 		}
@@ -705,7 +771,22 @@ public class CqlToken {
 			}
 			return list;
 		}
+		case SMALLINT: {
+			List<Short> list = new ArrayList<Short>();
+			for (String val : inList) {
+				list.add(Short.valueOf(val));
+			}
+			return list;
+		}
+		case TINYINT: {
+			List<Byte> list = new ArrayList<Byte>();
+			for (String val : inList) {
+				list.add(Byte.valueOf(val));
+			}
+			return list;
+		}
 		case BIGINT:
+		case TIME:
 		case COUNTER: {
 			List<Long> list = new ArrayList<Long>();
 			for (String val : inList) {
@@ -737,7 +818,7 @@ public class CqlToken {
 		case TIMESTAMP: {
 			List<Date> list = new ArrayList<Date>();
 			for (String val : inList) {
-				list.add(Date.valueOf(val));
+				list.add(DateFormat.getDateInstance().parse(val));
 			}
 			return list;
 		}

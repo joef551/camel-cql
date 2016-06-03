@@ -14,6 +14,7 @@
 		<property name="mappings">
 			<value>
 				/user=user
+				/dtypes=dtypes
 				/customer=customer
 				/tag=tag
 				/video*=videoevent
@@ -197,6 +198,46 @@
 			value="select location from customer where username = `text:locationuser`" />
 	</bean>
 
+
+
+	<!-- A Client bean called 'dtypes' used for testing different data types -->
+	<bean id="dtypes" class="org.metis.cassandra.Client">
+		<property name="cqls">
+			<list>
+				<ref bean="insertDtypes" />
+				<ref bean="deleteDtypes" />
+				<ref bean="selectDtypes" />
+			</list>
+		</property>
+		<property name="defaultMethod">
+			<util:constant static-field="org.metis.cassandra.Client.Method.SELECT" />
+		</property>
+		<property name="keyspace" value="videodb" />
+		<property name="clusterBean" ref="cluster1" />
+	</bean>
+	<bean id="insertDtypes" class="org.metis.cassandra.CqlStmnt">
+		<property name="statement"
+			value="insert into field_test 
+			(test_uuid,	test_varchar,test_boolean,test_date, test_decimal,test_double, test_float, 
+			 test_inet, test_int,  test_smallint, test_text, test_time, test_timestamp, test_timeuuid, 
+			 test_tinyint, test_varint) 
+             values (`uuid:test_uuid`,	`varchar:test_varchar`,	`boolean:test_boolean`,
+			 `date:test_date`,`decimal:test_decimal`, `double:test_double`,
+			 `float:test_float`,`inet:test_inet`, `int:test_int`, `smallint:test_smallint`,
+			 `text:test_text`, `time:test_time`,`timestamp:test_timestamp`,
+			 `timeuuid:test_timeuuid`, `tinyint:test_tinyint`,`varint:test_varint`)" />
+	</bean>
+	<bean id="deleteDtypes" class="org.metis.cassandra.CqlStmnt">
+		<property name="statement"
+			value="delete from field_test where test_uuid = `uuid:test_uuid`" />
+	</bean>
+	<bean id="selectDtypes" class="org.metis.cassandra.CqlStmnt">
+		<property name="statement"
+			value="select * from field_test where test_uuid = `uuid:test_uuid`" />
+	</bean>
+
+
+
 	<bean id="cluster1" class="org.metis.cassandra.ClusterBean">
 		<property name="clusterName" value="myCluster" />
 		<property name="clusterNodes" value="127.0.0.1" />
@@ -251,7 +292,7 @@
 	</bean>
 	<bean id="socketOptions" class="com.datastax.driver.core.SocketOptions" />
 	<bean id="poolingOptions" class="com.datastax.driver.core.PoolingOptions" />
-		<bean id="localOption" class="org.metis.cassandra.PoolingOption">
+	<bean id="localOption" class="org.metis.cassandra.PoolingOption">
 		<property name="hostDistance">
 			<util:constant static-field="com.datastax.driver.core.HostDistance.LOCAL" />
 		</property>

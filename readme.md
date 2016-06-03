@@ -78,7 +78,13 @@ Each Client bean that you define must be assigned one or more [CQL statements](#
 
 If a default method is not injected, the client selects one based on its injected CQL statements. If the injected CQL statements comprise just one type of method, then that method will be the default method. For example, if all the injected CQL statements are of type DELETE, then DELETE will be the default method for the client. However, if there exists a combination of CQL statements (e.g., SELECT and DELETE), then a default method cannot be determined.   
  
-If the incoming request message does not include input parameters, the client will choose the CQL statement not having any parameterized fields (see below); therefore, you should never have more than one non-parameterized CQL statement per CQL statement type.  The input parameters are passed in as either a Map, List of Maps, or JSON object. JSON objects are in the form of a String or InputStream object, which are transformed to either a Map or List of Maps. Please note that all incoming Camel exchanges must have the **InOut** message exchange pattern (MEP). The response message (Camel out message), which results from a SELECT, is sent back as a List of Maps, where each Map represents a row in the result set returned by Cassandra.  
+If the incoming request message does not include input parameters, the client will choose the CQL statement not having any parameterized fields (see below); therefore, you should never have more than one non-parameterized CQL statement per CQL statement type.  
+
+The input parameters (i.e., key:value pairs) are passed in as either a Map<String, Object>, List of Maps<String, Object>, or JSON object. JSON objects are in the form of a String or InputStream object, which are transformed to either a Map<String, String> or List of Maps. Please note that all incoming Camel exchanges must have the **InOut** message exchange pattern (MEP). 
+
+If the input parameters are passed in as a Map<String, String> or List of Maps<String, String> (as would be the case for a JSON string), then the String value is automatically transformed to its corresponding Java object type; i.e., if not a String. So for example, suppose a target CQL type is "smallint" and the String "27" is passed in as the value of the key;value pair, then the String "27" will be converted to a Short whose value is 27. The Java object is then bound to the CQL statement, which would amount to a prepared statement. See [CQL data types to Java types](http://docs.datastax.com/en/developer/java-driver/3.0/java-driver/reference/javaClass2Cql3Datatypes.html) for a table that lists the mappings from CQL to Java types. 
+
+The response message (Camel out message), which results from a SELECT query, is returned to the calling application as a List of Maps, where each Map<String, Object> represents a row in the result set returned by Cassandra.   
 
 So through a single CQL endpoint, you can invoke any of the CQL statements that are assigned to its corresponding client. This, therefore, precludes the endpoint from getting nailed to any one particular CQL statement for it is the method and input parameters that decide which CQL statement will be used. Here's a snippet of XML that defines a client bean called "user". 
 
@@ -168,7 +174,7 @@ As previously described, the optional  **defaultMethod** property is used for sp
 
 <u>autoInject</u>
 
-The **autoInject** property is used to essentially disable the Client bean. So if the property is set to "false", it will not initialize itselft and is also not auto-injected by any CQL component. For example, the following "userfoo" Client bean will never get injected into any CQL component.
+The **autoInject** property is used to essentially disable the Client bean. So if the property is set to "false", the Client bean will not initialize itself and is also not auto-injected by any CQL component. For example, the following "userfoo" Client bean will never get injected into any CQL component.
 
 ```xml
 <bean id="userfoo" class="org.metis.cassandra.Client">
