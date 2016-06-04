@@ -464,7 +464,7 @@ The **queryOptions** property is used for specifying options for the queries. Fo
 <h1 id="JSON Support">JSON Support</h1>
 
 
-[Retrieval using JSON](http://docs.datastax.com/en/cql/3.3/cql/cql_using/useQueryJSON.html) is done via a JSON SELECT statement. For example, the following CqlStmnt is defined as a JSON SELECT that is used to retrieve all the rows/records from the "user" table as a List<Map <String,String>>, where each Map contains only one key:value pair having a key of "[json]".    
+[Retrieval using JSON](http://docs.datastax.com/en/cql/3.3/cql/cql_using/useQueryJSON.html) is done via a JSON SELECT statement. For example, the following CqlStmnt is defined as a JSON SELECT that is used to retrieve all the rows/records from the "user" table as a ```java List<Map <String,String>>```, where each Map contains only one key:value pair having a key of "[json]".    
 
 ```xml
 <bean id="selectJSON" class="org.metis.cassandra.CqlStmnt">
@@ -472,13 +472,13 @@ The **queryOptions** property is used for specifying options for the queries. Fo
 </bean>
 ```
 
-Here's a snippet of Java code, assuming you have a reference to a Camel Exchange object, that extracts the resulting JSON strings from a retrieved List<Map<String,String>>:
+Here's a snippet of Java code, assuming you have a reference to a Camel Exchange object, that extracts the resulting JSON strings from a retrieved ```java List<Map<String,String>>```:
 
 ```java
 List<Map<String, String>> mList = (List<Map<String, String>>)exchange.getIn().getBody();
 ```
 
-[Inserting JSON data into a table](http://docs.datastax.com/en/cql/3.3/cql/cql_using/useInsertJSON.html) is done via a JSON INSERT statement. For example, the following CqlStmnt is defined as a JSON INSERT that is used to insert rows/records based on a an input parameter of CQL type "text" and a key called, "json".  
+[Inserting JSON data into a table](http://docs.datastax.com/en/cql/3.3/cql/cql_using/useInsertJSON.html) is done via a JSON INSERT statement. For example, the following CqlStmnt is defined as a JSON INSERT that is used to insert rows/records based on  an input parameter of CQL type "text" and a key called, "json".  
 
 ```xml
 <bean id="insertJSON" class="org.metis.cassandra.CqlStmnt">
@@ -489,12 +489,12 @@ List<Map<String, String>> mList = (List<Map<String, String>>)exchange.getIn().ge
 The JSON string could be something similar to the following:
 
 ```json
-'{   
+{   
   "id" : "829aa84a-4bba-411f-a4fb-38167a987cda",
   "fistname" : "MARY"
   "lastname" : "SMITH",
   "age" : 30 
- }';
+ }
 ```
 
 <h1 id="WhoMetis">So Who or What Was Metis?</h1>
