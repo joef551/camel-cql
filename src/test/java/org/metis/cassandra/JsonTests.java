@@ -2,12 +2,14 @@ package org.metis.cassandra;
 
 import java.text.DateFormat;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Date;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.net.InetAddress;
+import java.util.UUID;
 
 import org.apache.camel.Exchange;
 import org.apache.camel.Predicate;
@@ -20,19 +22,13 @@ import com.datastax.driver.core.LocalDate;
 
 import static org.metis.utils.Constants.*;
 
-/**
- * This test case inserts a set of key:value pairs, where all values are
- * Strings. The objective of is to validate that the String values are properly
- * mapped to their respective Java objects, based on the corresponding target
- * CQL types.
- * 
- */
-public class DataTypesTest extends BaseTest {
+public class JsonTests extends BaseTest {
 
 	/*
-	 * These are String representations of the target CQL types. 
+	 * These are String representations of the target CQL types.
 	 */
 	private static String test_uuid = UUIDs.random().toString();
+	private static String test_uuid2 = UUIDs.random().toString();
 	private static String test_varchar = "test_varchar";
 	private static String test_boolean = Boolean.valueOf(true).toString();
 	private static LocalDate lDate = LocalDate.fromMillisSinceEpoch(System
@@ -86,12 +82,22 @@ public class DataTypesTest extends BaseTest {
 	 */
 	@Test
 	public void testA() throws Exception {
+		Map<String, String> map = new HashMap<String, String>();
+		String JSON = "{\"test_uuid\":\"" + test_uuid + "\", \"test_int\":"
+				+ test_int + "}";
+		map.put("json", JSON);
+		template.requestBodyAndHeader("direct:start", map, CASSANDRA_METHOD,
+				"insert");
+		map.clear();
+		JSON = "{\"test_uuid\":\"" + test_uuid2 + "\", \"test_int\":"
+				+ test_int + "}";
+		map.put("json", JSON);
 		template.requestBodyAndHeader("direct:start", map, CASSANDRA_METHOD,
 				"insert");
 	}
 
 	/**
-	 * Confirm insertion
+	 * Use a regular SELECT to confirm
 	 * 
 	 * @throws Exception
 	 */
@@ -106,14 +112,32 @@ public class DataTypesTest extends BaseTest {
 	}
 
 	/**
-	 * Delete
+	 * Use a JSON SELECT to confirm
 	 * 
 	 * @throws Exception
 	 */
 	@Test
 	public void testC() throws Exception {
+		// String JSON = "{\"json_test_uuid\":\"" + test_uuid + "\"}";
+		getMockEndpoint("mock:result").expectedMessagesMatches(
+				new JsonTestResult());
+		template.requestBodyAndHeader("direct:start", null, CASSANDRA_METHOD,
+				"select");
+		assertMockEndpointsSatisfied();
+	}
+
+	/**
+	 * Delete
+	 * 
+	 * @throws Exception
+	 */
+	@Test
+	public void testD() throws Exception {
 		// this is what we send to the CqlEndpoint
 		String JSON = "{\"test_uuid\":\"" + test_uuid + "\"}";
+		template.requestBodyAndHeader("direct:start", JSON, CASSANDRA_METHOD,
+				"delete");
+		JSON = "{\"test_uuid\":\"" + test_uuid2 + "\"}";
 		template.requestBodyAndHeader("direct:start", JSON, CASSANDRA_METHOD,
 				"delete");
 	}
@@ -124,7 +148,7 @@ public class DataTypesTest extends BaseTest {
 	 * @throws Exception
 	 */
 	@Test
-	public void testD() throws Exception {
+	public void testE() throws Exception {
 		// this is what we send to the CqlEndpoint
 		String JSON = "{\"test_uuid\":\"" + test_uuid + "\"}";
 		getMockEndpoint("mock:result").expectedMessagesMatches(
@@ -180,9 +204,38 @@ public class DataTypesTest extends BaseTest {
 				return false;
 			}
 
-			Object value = rmap.get("test_inet");
-			if (!(value instanceof InetAddress)) {
+			Object value = rmap.get("test_uuid");
+			if (!(value instanceof UUID)) {
 				return false;
+			}
+
+			value = rmap.get("test_int");
+			if (!(value instanceof Integer)) {
+				return false;
+			}
+
+			return true;
+		}
+	}
+
+	private class JsonTestResult implements Predicate {
+		public boolean matches(Exchange exchange) {
+			@SuppressWarnings("unchecked")
+			List<Map<String, String>> mList = (List<Map<String, String>>) exchange
+					.getIn().getBody();
+			if (mList == null || mList.size() != 2) {
+				return false;
+			}
+
+			for (Map<String, String> map : mList) {
+
+				if (map.size() != 1) {
+					return false;
+				}
+				Object value = map.get("[json]");
+				if (value == null) {
+					return false;
+				}
 			}
 			return true;
 		}

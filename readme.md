@@ -188,7 +188,7 @@ The **autoInject** property is used to essentially disable the Client bean. So i
 
 <h2 id="cqlstatement">CQL Statement</h2>
 
-Before proceeding with this next bean, lets recap what has been covered. A CQL component self-injects all [Client](#client) beans that it locates and these Client beans are injected with a set of CQL statements. Recall that you can either explicitly inject a set of CQL statements into the client or you can let the client self-inject all the CQL statements that it locates in its respective application context.   
+Before proceeding with this next bean, lets recap what has been covered. A CQL component self-injects all [Client](#client) beans that it locates and these Client beans are injected with a set of CQL statements. Recall that you can either explicitly inject a set of CQL statements into the Client or you can let the Client self-inject all the CQL statements that it locates in its respective application context.   
  
 This section lists and describes all of the properties for the CQL statement bean. Most of these properties correlate to those found in the [Cassandra Statement](http://docs.datastax.com/en/drivers/java/3.0/com/datastax/driver/core/Statement.html) class.
 
@@ -235,7 +235,7 @@ The third and last subfield, which is optional, is used to specify a collection 
 
 Note from [1] about using collections. <i>"Use collections, such as Set, List or Map, when you want to store or denormalize a small amount of data. Values of items in collections are limited to 64K. Other limitations also apply. Collections work well for storing data such as the phone numbers of a user and labels applied to an email. If the data you need to store has unbounded growth potential, such as all the messages sent by a user or events registered by a sensor, do not use collections. Instead, use a table having a compound primary key and store data in the clustering columns".</i>
 
-All CQL statements for a particular statement type (query method) must be distinct with respect to the parameterized fields. If you have two statements with the same query method and those two methods have the same number of parameterized fields with matching key names, then an exception will be thrown during the Client bean's initialization. For example, these two CQL statements, when assigned to a Client bean, will result in an exception. 
+All CQL statements for a particular statement type (query method) must be distinct with respect to their parameterized fields. If you have two statements with the same query method and those two methods have the same number of parameterized fields with matching key names, then an exception will be thrown during the Client bean's initialization. For example, these two CQL statements, when assigned to a Client bean, will result in an exception. 
 
 ````
 select username from username_video_index where username =`text:username`
@@ -249,7 +249,7 @@ select first, last from user where username =`text:username` and `int:age` = 59
 ````
 Even though they share one identical parameterized field, they do not have an equal number of parameterized fields.
 
-When a request message arrives at a CQL endpoint, in the form of a Camel in-message, that specifies a SELECT method, the three **distinct** SELECT statements (from the above set) become candidates for the request. The input parameters (key:value pairs) in the request message dictate which of the three to use. For example, if the request message contains one Map with one key:value pair of `username:joe`, then the Map is bound to the second SELECT CQL statement. If the request message contains only one Map with one key:value pair of `user:joe`, then the Map is bound to the third SELECT statement. If there is no request message (i.e., the Camel exchange does not include an in body), the first CQL select statement is used because it has no parameterized fields. An exception is thrown if a match cannot be found. 
+When a request message, in the form of a Camel in-message, arrives at a CQL endpoint that specifies a SELECT method, the three **distinct** SELECT statements (from the above set) become candidates for the request. The input parameters (key:value pairs) in the request message dictate which of the three to use. For example, if the request message contains one Map with one key:value pair of `username:joe`, then the Map is bound to the second SELECT CQL statement. If the request message contains only one Map with one key:value pair of `user:joe`, then the Map is bound to the third SELECT statement. If there is no request message (i.e., the Camel exchange does not include an in body), the first CQL select statement is used because it has no parameterized fields. An exception is thrown if a match cannot be found. 
 
 **If the in-message comprises a list of maps, then all of the maps in the payload must have the same set of key names!** If there is a list of maps, then it represents a batch UPDATE, INSERT, or DELETE. A list of maps cannot be used for a SELECT.  
 
@@ -461,6 +461,41 @@ The **socketOptions** property is used for specifying low-level [SocketOptions](
 
 The **queryOptions** property is used for specifying options for the queries. For more details see [QueryOptions](http://www.datastax.com/drivers/java/3.0/com/datastax/driver/core/QueryOptions.html).   
 
+<h1 id="JSON Support">JSON Support</h1>
+
+
+[Retrieval using JSON](http://docs.datastax.com/en/cql/3.3/cql/cql_using/useQueryJSON.html) is done via a JSON SELECT statement. For example, the following CqlStmnt is defined as a JSON SELECT that is used to retrieve all the rows/records from the "user" table as a List<Map <String,String>>, where each Map contains only one key:value pair having a key of "[json]".    
+
+```xml
+<bean id="selectJSON" class="org.metis.cassandra.CqlStmnt">
+  <property name="statement"	value="select json * from users" />
+</bean>
+```
+
+Here's a snippet of Java code, assuming you have a reference to a Camel Exchange object, that extracts the resulting JSON strings from a retrieved List<Map<String,String>>:
+
+```java
+List<Map<String, String>> mList = (List<Map<String, String>>)exchange.getIn().getBody();
+```
+
+[Inserting JSON data into a table](http://docs.datastax.com/en/cql/3.3/cql/cql_using/useInsertJSON.html) is done via a JSON INSERT statement. For example, the following CqlStmnt is defined as a JSON INSERT that is used to insert rows/records based on a an input parameter of CQL type "text" and a key called, "json".  
+
+```xml
+<bean id="insertJSON" class="org.metis.cassandra.CqlStmnt">
+ <property name="statement" value="insert into users json `text:json`" />
+</bean>
+```
+
+The JSON string could be something similar to the following:
+
+```json
+'{   
+  "id" : "829aa84a-4bba-411f-a4fb-38167a987cda",
+  "fistname" : "MARY"
+  "lastname" : "SMITH",
+  "age" : 30 
+ }';
+```
 
 <h1 id="WhoMetis">So Who or What Was Metis?</h1>
 

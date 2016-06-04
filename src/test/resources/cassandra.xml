@@ -205,8 +205,10 @@
 		<property name="cqls">
 			<list>
 				<ref bean="insertDtypes" />
+				<ref bean="insertJSON" />
 				<ref bean="deleteDtypes" />
 				<ref bean="selectDtypes" />
+				<ref bean="selectJSON" />
 			</list>
 		</property>
 		<property name="defaultMethod">
@@ -234,6 +236,13 @@
 	<bean id="selectDtypes" class="org.metis.cassandra.CqlStmnt">
 		<property name="statement"
 			value="select * from field_test where test_uuid = `uuid:test_uuid`" />
+	</bean>
+	<bean id="selectJSON" class="org.metis.cassandra.CqlStmnt">
+		<property name="statement"
+			value="select json test_uuid, test_int from field_test" />
+	</bean>
+	<bean id="insertJSON" class="org.metis.cassandra.CqlStmnt">
+		<property name="statement" value="insert into field_test json `text:json`" />
 	</bean>
 
 

@@ -1,12 +1,10 @@
 package org.metis.cassandra;
 
-import java.text.DateFormat;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Date;
 import java.util.UUID;
-import java.text.DateFormat;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.net.InetAddress;
@@ -22,6 +20,12 @@ import com.datastax.driver.core.LocalDate;
 
 import static org.metis.utils.Constants.*;
 
+/**
+ * This test case inserts a set of key:value pairs, where all values are various
+ * Java object types. The objective is to validate that the values are properly
+ * mapped to their respective CQL types.
+ * 
+ */
 public class DataTypesTest2 extends BaseTest {
 
 	private static UUID test_uuid = UUIDs.random();
@@ -180,6 +184,14 @@ public class DataTypesTest2 extends BaseTest {
 				return false;
 			}
 			
+			value = rmap.get("test_date");
+			if (!(value instanceof LocalDate)) {
+				return false;
+			}
+			if (test_date.getDay() != ((LocalDate)value).getDay()) {
+				return false;
+			}
+
 			return true;
 		}
 	}

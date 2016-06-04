@@ -86,6 +86,14 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 	// marks this statement as a "SELECT JSON ..." statement
 	private boolean isJsonSelect;
 
+	/*
+	 * marks this statement as an "INSERT INTO FOO_TABLE JSON '{ "category" :
+	 * "GC", "points" : 780, "id" : "829aa84a-4bba-411f-a4fb-38167a987cda",
+	 * "lastname" : "SUTHERLAND" }' statement; in other words, its an UPDATE
+	 * JSON statement
+	 */
+	private boolean isJsonInsert;
+
 	// A Map of bound and simple statement pools, where each pool pertains to a
 	// particular Cassandra session.
 	private Map<Session, CqlStmntPool> stmntPool = new ConcurrentHashMap<Session, CqlStmntPool>();
@@ -363,15 +371,7 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 	}
 
 	/**
-	 * CqlStmnt factory used for creating a CqlStmnt object from the given CQL
-	 * string.
-	 * 
-	 * @param wdch
-	 * @param cql
-	 * @param jdbcTemplate
-	 * @return
-	 * @throws IllegalArgumentException
-	 * @throws Exception
+	 * Called to initialize and validate the statement
 	 */
 	public void afterPropertiesSet() throws Exception {
 
@@ -396,14 +396,11 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 			}
 		}
 		String cql2 = EMPTY_STR;
-		for (int i = 0; i < tokens.length; i++) {
-			cql2 += tokens[i].trim();
-			if (i < tokens.length - 1) {
-				cql2 += SPACE_STR;
-			}
+		for (String token : tokens) {
+			cql2 += token.trim() + SPACE_STR;
 		}
 		// set the new trimmed statement
-		setStatement(cql2);
+		setStatement(cql2.trim());
 
 		// begin initial validation work
 		if (UPDATE_STR.equalsIgnoreCase(tokens[0])) {
@@ -759,13 +756,16 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 			throws IllegalArgumentException {
 		if (cql != null && cql.length() > 0) {
 			String[] tokens = cql.split(DELIM);
-			if (tokens.length < 2) {
+			if (tokens.length < 3) {
 				throw new IllegalArgumentException(
 						"valSql4Insert: invalid CQL statement - insufficent "
-								+ "number of tokens");
+								+ "number of tokens for insert statement");
 			} else if (!tokens[0].equalsIgnoreCase(INSERT_STR)) {
 				throw new IllegalArgumentException(
 						"valCql4Insert: invalid CQL statement - does not start with 'insert'");
+			} else if (!tokens[1].equalsIgnoreCase(INTO_STR)) {
+				throw new IllegalArgumentException(
+						"valCql4Insert: invalid CQL statement - second cql keyword for insert must be 'into'");
 			}
 		} else {
 			throw new IllegalArgumentException(
@@ -904,10 +904,13 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 		int keyTokensIndex = 0;
 		String tmpStr = EMPTY_STR;
 
-		// start by iterating through all the tokens, placing them in
-		// different buckets based on their type. There are 2 types
-		// parameterized and non-parameterized. A non-key is a CQL keyword,
-		// while a key is a token for a prepared statement; e.g., `integer:id`
+		/*
+		 * start by iterating through all the tokens, separating them out and
+		 * building the prepared statement. There are 2 types of tokens:
+		 * parameterized (key) and non-parameterized (non-key). A non-key is a
+		 * regular CQL keyword, while a key is a token for a prepared statement;
+		 * e.g., `integer:id`
+		 */
 		for (CqlToken token : intokens) {
 			if (token.isKey()) {
 				keyTokenArray[keyTokensIndex++] = token;
@@ -1009,6 +1012,8 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 
 		} else if (tmpToken.getValue().equalsIgnoreCase(INSERT_STR)) {
 			setCqlStmntType(Method.INSERT);
+			// is this a INSERT JSON statement
+			setJsonInsert(getTokens().get(3).isJson());
 
 		} else {
 			throw new IllegalArgumentException("unknown CQL statement: "
@@ -1195,7 +1200,7 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 	 * @param isJsonSelect
 	 *            the isJsonSelect to set
 	 */
-	public void setJsonSelect(boolean isJsonSelect) {
+	private void setJsonSelect(boolean isJsonSelect) {
 		this.isJsonSelect = isJsonSelect;
 	}
 
@@ -1212,6 +1217,21 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 	 */
 	public void setStackSize(int stackSize) {
 		this.stackSize = stackSize;
+	}
+
+	/**
+	 * @return the isJsonInsert
+	 */
+	public boolean isJsonInsert() {
+		return isJsonInsert;
+	}
+
+	/**
+	 * @param isJsonInsert
+	 *            the isJsonInsert to set
+	 */
+	private void setJsonInsert(boolean isJsonInsert) {
+		this.isJsonInsert = isJsonInsert;
 	}
 
 	/*

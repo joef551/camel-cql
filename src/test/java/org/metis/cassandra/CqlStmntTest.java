@@ -551,6 +551,56 @@ public class CqlStmntTest {
 			fail("ERROR: got this exception on single quote test: "
 					+ e.getMessage());
 		}
+		
+		// should not throw an exception
+		cql = "insert into video_event  json  `text:	json `";
+		cqlStmnt = new CqlStmnt(cql);		
+		list.clear();
+		list.add(cqlStmnt);
+		try {
+			cqlStmnt.afterPropertiesSet();
+			assertEquals(true,cqlStmnt.isJsonInsert());
+			client = new Client();
+			client.setCqls(list);
+			client.setClusterBean(clusterBean);
+			client.setKeyspace("videodb");
+			client.afterPropertiesSet();
+		} catch (Exception e) {
+			fail("ERROR: got this exception on json insert test: "
+					+ e.getMessage());
+		}
+		cqlList = client.getCqlStmnts4Insert();		
+		assertEquals(
+				true,
+				cqlList.get(0).getPreparedStr()
+						.equals("insert into video_event json ?"));
+		
+		
+		
+		// should not throw an exception		
+		cql = "select json videoid, username from video_event where videoid=`uuid:videoid` and username=`ascii:username`";
+		cqlStmnt = new CqlStmnt(cql);		
+		list.clear();
+		list.add(cqlStmnt);
+		try {
+			cqlStmnt.afterPropertiesSet();
+			assertEquals(true,cqlStmnt.isJsonSelect());
+			client = new Client();
+			client.setCqls(list);
+			client.setClusterBean(clusterBean);
+			client.setKeyspace("videodb");
+			client.afterPropertiesSet();
+		} catch (Exception e) {
+			fail("ERROR: got this exception on json select test: "
+					+ e.getMessage());
+		}
+		cqlList = client.getCqlStmnts4Select();		
+		assertEquals(
+				true,
+				cqlList.get(0)
+						.getPreparedStr()
+						.equals("select json videoid , username from video_event where videoid= ? and username= ?"));
+		
 
 		// this should not throw an exception
 		list.clear();

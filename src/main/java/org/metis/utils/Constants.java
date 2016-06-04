@@ -47,6 +47,7 @@ public class Constants {
 	public static final String DELETE_STR = "delete";
 	public static final String INSERT_STR = "insert";
 	public static final String SELECT_STR = "select";
+	public static final String INTO_STR = "into";
 	public static final String CASSANDRA_METHOD = "metis.cql.method";
 	public static final String CASSANDRA_PAGING_STATE = "metis.cql.paging.state";
 	public static final String UTF8_STR = "utf-8";
