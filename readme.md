@@ -80,11 +80,11 @@ If a default method is not injected, the client selects one based on its injecte
  
 If the incoming request message does not include input parameters, the Client chooses the CQL statement not having any parameterized fields (see below); therefore, you should never have more than one non-parameterized CQL statement per CQL statement type.  
 
-The input parameters (i.e., key:value pairs) are passed in as either a ```java Map<String, Object>```, ```java List of Maps<String, Object>```, or JSON object. JSON objects are in the form of a String or InputStream object, which are transformed to either a ```java Map<String, String>``` or List of Maps. Please note that all incoming Camel exchanges must have the **InOut** message exchange pattern (MEP). 
+The input parameters (i.e., key:value pairs) are passed in as either a ```Map<String, Object>```, ```List of Maps<String, Object>```, or JSON object. JSON objects are in the form of a String or InputStream object, which are transformed to either a ```Map<String, String>``` or List of Maps. Please note that all incoming Camel exchanges must have the **InOut** message exchange pattern (MEP). 
 
-If the input parameters are passed in as a ```java Map<String, String>``` or List of ```java Maps<String, String>```, then the String value is automatically transformed to its corresponding Java object type; i.e., if not a String. So for example, suppose a target CQL type is "smallint" and the String "27" is passed in as the value of the key:value pair, then the String "27" will be converted to a Short whose value is 27 and that Short instance is then bound to the CQL prepared statement. See [CQL data types to Java types](http://docs.datastax.com/en/developer/java-driver/3.0/java-driver/reference/javaClass2Cql3Datatypes.html) for a table that lists the mappings from CQL to Java types. 
+If the input parameters are passed in as a ```Map<String, String>``` or List of ```Maps<String, String>```, then the String value is automatically transformed to its corresponding Java object type; i.e., if not a String. So for example, suppose a target CQL type is "smallint" and the String "27" is passed in as the value of the key:value pair, then the String "27" will be converted to a Short whose value is 27 and that Short instance is then bound to the CQL prepared statement. See [CQL data types to Java types](http://docs.datastax.com/en/developer/java-driver/3.0/java-driver/reference/javaClass2Cql3Datatypes.html) for a table that lists the mappings from CQL to Java types. 
 
-The response message (Camel out message), which results from a SELECT query, is returned to the calling application as a List of Maps, where each ```java Map<String, Object>``` represents a row in the result set returned by Cassandra.   
+The response message (Camel out message), which results from a SELECT query, is returned to the calling application as a List of Maps, where each ```Map<String, Object>``` represents a row in the result set returned by Cassandra.   
 
 So through a single CQL endpoint, you can invoke any of the CQL statements that are assigned to its corresponding Client. This, therefore, precludes the endpoint from getting nailed to any one particular CQL statement for it is the method and input parameters that decide which CQL statement will be used. Here's a snippet of XML that defines a client bean called "user". 
 
@@ -464,7 +464,7 @@ The **queryOptions** property is used for specifying options for the queries. Fo
 <h1 id="JSON Support">JSON Support</h1>
 
 
-[Retrieval using JSON](http://docs.datastax.com/en/cql/3.3/cql/cql_using/useQueryJSON.html) is done via a JSON SELECT statement. For example, the following CqlStmnt is defined as a JSON SELECT that is used to retrieve all the rows/records from the "user" table as a ```java List<Map <String,String>>```, where each Map contains only one key:value pair having a key of "[json]".    
+[Retrieval using JSON](http://docs.datastax.com/en/cql/3.3/cql/cql_using/useQueryJSON.html) is done via a JSON SELECT statement. For example, the following CqlStmnt is defined as a JSON SELECT that is used to retrieve all the rows/records from the "user" table as a ```List<Map <String,String>>```, where each Map contains only one key:value pair having a key of "[json]".    
 
 ```xml
 <bean id="selectJSON" class="org.metis.cassandra.CqlStmnt">
@@ -472,7 +472,7 @@ The **queryOptions** property is used for specifying options for the queries. Fo
 </bean>
 ```
 
-Here's a snippet of Java code, assuming you have a reference to a Camel Exchange object, that extracts the resulting JSON strings from a retrieved ```java List<Map<String,String>>```:
+Here's a snippet of Java code, assuming you have a reference to a Camel Exchange object, that extracts the resulting JSON strings from a retrieved ```List<Map<String,String>>```:
 
 ```java
 List<Map<String, String>> mList = (List<Map<String, String>>)exchange.getIn().getBody();
