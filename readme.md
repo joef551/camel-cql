@@ -14,6 +14,7 @@
 	- [Client Mapper](#clientmapper)
 	- [Cluster Bean](#clusterbean)
 - [JSON Support](#JSON Support)
+- [References](#References)
      
 <br>
 
@@ -24,7 +25,7 @@
 [Apache Camel](http://camel.apache.org)<font size="1"><sup>TM</sup></font> is a powerful and feature-rich open source integration framework whose goal is, in part, to facilitate the implementation of enterprise integration patterns. Camel supports or implements  most of the integration patterns that are described in the book by Bobby Woolf and Gregor Hohpe entitled, ["Enterprise Integration Patterns"](http://www.enterpriseintegrationpatterns.com "EIP" ). In the Camel vernacular, patterns are also referred to as routes. Camel is the integration framework for the open source [ServiceMix](http://servicemix.apache.org) enterprise service bus (ESB); however, Camel can also be used as a standalone integration framework. Camel includes a number of different [components](http://camel.apache.org/component.html), where each component can be viewed as a connector to an API, framework, protocol, and/or data store. For example, there are components  for smtp, ftp, tcp, file, sql, jdbc, jetty, etc. There must now be over 50 different components and the number just keeps growing. Camel routes are message patterns that are used, in part, for integrating these components. For example, you may have a route that reads messages from a JMS queue and persists the messages to different database tables. The different routing possibilities are endless. The "[Camel In Action](http://www.manning.com/ibsen/)" book is a must-read for anyone getting started with Camel. 
 
 [Apache Cassandra](http://cassandra.apache.org)<font size="1"><sup>TM</sup></font> is a massively scalable open source NoSQL database management system (DBMS) [1]. Cassandra is highly fault-tolerant and based on the Columnar or ColumnFamily data model; think of it as a highly distributed hash table. Cassandra includes a SQL-like programming language called, "[Cassandra Query Language](http://www.datastax.com/documentation/cql/3.1/cql/cql_intro_c.html)" (CQL), which is the default and primary interface into the Cassandra DBMS. Using CQL is similar to using SQL in that the concept of a table having rows and columns is almost the same in CQL and SQL. The main difference is that Cassandra does not support joins or subqueries, except for batch analysis through Hive. Instead, Cassandra emphasizes denormalization through CQL features like collections and clustering specified at the schema level [1]. CQL is the recommended way to interact with Cassandra. The simplicity of reading and using CQL is an advantage over older Cassandra APIs.The goal of this project is to provide a highly configurable and flexible Camel component for CQL. The CQL component allows one to create Camel routes that integrate with the Cassandra DBMS. The initial release of this component supports a Camel producer (e.g., `to()`), but not consumer. The producer provides the basic CRUD (create, read, update, delete) functionality and implements the InOut Camel message exchange pattern (MEP). 
-Unlike other Camel Cassandra components (e.g., http://camel.apache.org/cassandra.html), this component decouples the Camel route from the CQL query statement. So one may define a Cassandra endpoint that can dynamically access any CQL query [prepared] statement within a given set of such statements. It is a set of key:value pairs, which is conveyed through the Camel Exchange message body, that binds the Exchange to a particular CQL query statement. So a Cassandra endpoint is used as a conduit for dynamically binding Exchange messages to a CQL statements, and then invoking those statements. Exchange message bodies are also optional for those cases where a set of key:value pairs is not required to invoke the CQL query statement. So the upshot is that there is no need to specify a CQL query statement within the Exchange message nor as a component URI option.    
+Unlike other Camel Cassandra components (e.g., http://camel.apache.org/cassandra.html), this component decouples the Camel route from the CQL query statement. So one may define a Cassandra endpoint that can dynamically access any CQL query [prepared] statement within a given set of such statements. It is a set of key:value pairs, which is conveyed through the Camel Exchange message body, that binds the Exchange to a particular CQL query statement. So a Cassandra endpoint is used as a conduit for dynamically binding Exchange messages to CQL statements, and then executing those statements. Exchange message bodies are also optional for those cases where a set of key:value pairs is not required to invoke the CQL query statement. So the upshot is that there is no need to specify a CQL query statement within the Exchange message nor as a component URI option.    
 
 <h1 id="URI Format">URI Format</h1>
 [[back to top]](#top)
@@ -518,15 +519,23 @@ The JSON string could be something similar to the following:
  }
 ```
 
+
+
+<h1 id="References">References</h1>
+[[back to top]](#top)
+
+[1] [*DataStax, Apache Casandra Documentation*](http://www.datastax.com/documentation/articles/cassandra)
+
+[2] [*DataStax, Apache Casandra Java Driver 3.0 API Reference*](http://docs.datastax.com/en/drivers/java/3.0)  
+
+[3] [*Greek Mythology*](http://www.greekmythology.com/Titans/Metis/metis.html)
+
+[4] [*Facebook's Cassandra Paper*](http://docs.datastax.com/en/articles/cassandra/cassandrathenandnow.html)
+
+
+
+
 <h1 id="WhoMetis">So Who or What Was Metis?</h1>
 
 
 *Metis was the Titaness of the forth day and the planet Mercury. She presided over all wisdom and knowledge. She was seduced by Zeus and became pregnant with Athena. Zeus became concerned over prophecies that Metis’ children would be very powerful and that her second child (a son) would overthrow Zeus. To avoid this from ever hapenning, Zeus turned Metis into a fly and swallowed her. It is said that Metis is the source for Zeus’ wisdom and that she advises Zeus from his belly.[3]*
-
-
-<h1 id="References">References</h1>
-
-[1] [*DataStax, Apache Casandra 2.0 Documentation*](http://www.datastax.com/documentation/articles/cassandra/cassandrathenandnow.html)  
-[2] [*DataStax, Apache Casandra Java Driver 2.0 API Reference*](http://www.datastax.com/drivers/java/2.0/)  
-[3] [*Greek Mythology*](http://www.greekmythology.com/Titans/Metis/metis.html)
-
