@@ -267,14 +267,14 @@ Note from [1] about using collections. <i>"Use collections, such as Set, List or
 All CQL statements for a particular statement type (query method) must be distinct with respect to their parameterized fields. If you have two statements with the same query method and those two methods have the same number of parameterized fields with matching key names, then an exception will be thrown during the Client bean's initialization. For example, these two CQL statements, when assigned to a Client bean, will result in an exception. 
 
 ````
-select username from username_video_index where username =`text:username`
-select first, last from user where username =`text:username`
+select username from username_video_index where name =`text:username`
+select first, last from user where name =`text:username`
 ````
 Even though the two statements access different tables, they share the same number of identical parameterized fields; therefore, one is not distinct from the other with respect to the parameterized fields. The following two statements will not result in an exception.
 
 ````
-select username from username_video_index where username =`text:username`
-select first, last from user where username =`text:username` and `int:age` = 59
+select username from username_video_index where name =`text:username`
+select first, last from user where name =`text:username` and age = `int:age`
 ````
 Even though they share one identical parameterized field, they do not have an equal number of parameterized fields.
 
