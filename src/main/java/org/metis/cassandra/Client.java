@@ -19,6 +19,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.metis.utils.Utils;
 import org.slf4j.Logger;
@@ -92,6 +94,9 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 
 	// the default method used for this bean
 	private Method defaultMethod;
+
+	private final ReentrantLock sessionLock = new ReentrantLock();
+	private long sessionLockWaitTime = 10000L;
 
 	public Client() {
 	}
@@ -681,6 +686,21 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 	}
 
 	/**
+	 * 
+	 * A session holds connections to a Cassandra cluster, allowing it to be
+	 * queried. Each session maintains multiple connections to the cluster
+	 * nodes, provides policies to choose which node to use for each query
+	 * (round-robin on all nodes of the cluster by default), and handles retries
+	 * for failed queries (when it makes sense), etc...
+	 * 
+	 * Session instances are thread-safe and usually a single instance is enough
+	 * per application. As a given session can only be "logged" into one
+	 * keyspace at a time (where the "logged" keyspace is the one used by
+	 * queries that don't explicitly use a fully qualified table name), it can
+	 * make sense to create one session per keyspace used. This is however not
+	 * necessary when querying multiple keyspaces since it is always possible to
+	 * use a single session with fully qualified table names in queries.
+	 * 
 	 * @return the Cassandra session
 	 */
 	public Session getSession() throws Exception {
@@ -690,20 +710,34 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 					+ ":getSession: cluster bean has been closed");
 		}
 
-		if (session != null && !session.isClosed()) {
-			return session;
-		} else if (session != null) {
-			throw new Exception(this.getBeanName()
-					+ ":getSession: Cassandra session has been closed");
+		// wait to acquire the session lock (default wait time is 10 seconds).
+		if (!sessionLock.tryLock(getSessionLockWaitTime(),
+				TimeUnit.MILLISECONDS)) {
+			throw new Exception(
+					this.getBeanName()
+							+ ":getSession: timed out attempting to acquire Cassandra session");
 		}
 
 		try {
-			session = getCluster().connect(getKeyspace());
-		} catch (NoHostAvailableException exc) {
-			LOG.error(getBeanName()
-					+ ":unable to connect Cassandra during bean initialization, msg = "
-					+ exc.getMessage());
-			throw exc;
+			// session may have already existed
+			if (session != null && !session.isClosed()) {
+				return session;
+			} else if (session != null) {
+				throw new Exception(this.getBeanName()
+						+ ":getSession: Cassandra session has been closed");
+			}
+
+			// session does not exist, so create one
+			try {
+				session = getCluster().connect(getKeyspace());
+			} catch (NoHostAvailableException exc) {
+				LOG.error(getBeanName()
+						+ ":unable to connect Cassandra during bean initialization, msg = "
+						+ exc.getMessage());
+				throw exc;
+			}
+		} finally {
+			sessionLock.unlock();
 		}
 		return session;
 	}
@@ -867,6 +901,21 @@ public class Client implements InitializingBean, DisposableBean, BeanNameAware,
 
 	public boolean isNoop() {
 		return getDefaultMethod().isNoop();
+	}
+
+	/**
+	 * @return the sessionLockWaitTime
+	 */
+	public long getSessionLockWaitTime() {
+		return sessionLockWaitTime;
+	}
+
+	/**
+	 * @param sessionLockWaitTime
+	 *            the sessionLockWaitTime to set
+	 */
+	public void setSessionLockWaitTime(long sessionLockWaitTime) {
+		this.sessionLockWaitTime = sessionLockWaitTime;
 	}
 
 }

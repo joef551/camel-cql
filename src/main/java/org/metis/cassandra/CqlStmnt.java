@@ -1237,12 +1237,15 @@ public class CqlStmnt implements InitializingBean, BeanNameAware {
 	/*
 	 * Every CQLStmnt has a pool of simple and bound statements. Note that a
 	 * CQLStmnt is a thread safe singleton bean that is concurrently accessed by
-	 * many threads of execution. You can have multiple client beans injected
+	 * many threads of execution. You can have multiple Client beans injected
 	 * with the same CqlSmnt singleton bean and each of those Clients will use
-	 * their own distinct Cassandra session. Therefore, each CqlStmnt bean
-	 * maintains a Map of these pools; one pool for each session. We don't want
-	 * to be constantly creating and destroying these Simple and Bound
-	 * statements. Instead, we'd like to reuse them and thus the pool.
+	 * their own distinct Cassandra session. Note that it is possible (though
+	 * not typical) to have mutliple Client beans wired to different Clusters
+	 * and one CqlStmnt wired to those Clients. So those Clients will access the
+	 * CqlStmnt with different Sessions. Therefore, each CqlStmnt bean maintains
+	 * a Map of these pools; one pool for each session. We don't want to be
+	 * constantly creating and destroying these Simple and Bound statements.
+	 * Instead, we'd like to reuse them and thus the pool.
 	 */
 	private class CqlStmntPool {
 

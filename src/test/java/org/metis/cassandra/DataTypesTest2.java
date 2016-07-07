@@ -97,13 +97,12 @@ public class DataTypesTest2 extends BaseTest {
 	}
 
 	/**
-	 * Delete
+	 * Delete the just-inserted row
 	 * 
 	 * @throws Exception
 	 */
 	@Test
-	public void testC() throws Exception {
-		// this is what we send to the CqlEndpoint
+	public void testC() throws Exception {		
 		String JSON = "{\"test_uuid\":\"" + test_uuid + "\"}";
 		template.requestBodyAndHeader("direct:start", JSON, CASSANDRA_METHOD,
 				"delete");

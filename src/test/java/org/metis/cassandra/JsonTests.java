@@ -76,7 +76,7 @@ public class JsonTests extends BaseTest {
 	}
 
 	/**
-	 * Insert test fields
+	 * Insert test rows  using a JSON INSERT statement
 	 * 
 	 * @throws Exception
 	 */
@@ -117,8 +117,7 @@ public class JsonTests extends BaseTest {
 	 * @throws Exception
 	 */
 	@Test
-	public void testC() throws Exception {
-		// String JSON = "{\"json_test_uuid\":\"" + test_uuid + "\"}";
+	public void testC() throws Exception {		
 		getMockEndpoint("mock:result").expectedMessagesMatches(
 				new JsonTestResult());
 		template.requestBodyAndHeader("direct:start", null, CASSANDRA_METHOD,
