@@ -25,7 +25,7 @@
 [Apache Camel](http://camel.apache.org)<font size="1"><sup>TM</sup></font> is a powerful and feature-rich open source integration framework whose goal is, in part, to facilitate the implementation of enterprise integration patterns. Camel supports or implements  most of the integration patterns that are described in the book by Bobby Woolf and Gregor Hohpe entitled, ["Enterprise Integration Patterns"](http://www.enterpriseintegrationpatterns.com "EIP" ). In the Camel vernacular, patterns are also referred to as routes. Camel is the integration framework for the open source [ServiceMix](http://servicemix.apache.org) enterprise service bus (ESB); however, Camel can also be used as a standalone integration framework. Camel includes a number of different [components](http://camel.apache.org/component.html), where each component can be viewed as a connector to an API, framework, protocol, and/or data store. For example, there are components  for smtp, ftp, tcp, file, sql, jdbc, jetty, etc. There must now be over 50 different components and the number just keeps growing. Camel routes are message patterns that are used, in part, for integrating these components. For example, you may have a route that reads messages from a JMS queue and persists the messages to different database tables. The different routing possibilities are endless. The "[Camel In Action](http://www.manning.com/ibsen/)" book is a must-read for anyone getting started with Camel. 
 
 [Apache Cassandra](http://cassandra.apache.org)<font size="1"><sup>TM</sup></font> is a massively scalable open source NoSQL database management system (DBMS) [1]. Cassandra is highly fault-tolerant and based on the Columnar or ColumnFamily data model; think of it as a highly distributed hash table. Cassandra includes a SQL-like programming language called, "[Cassandra Query Language](http://www.datastax.com/documentation/cql/3.1/cql/cql_intro_c.html)" (CQL), which is the default and primary interface into the Cassandra DBMS. Using CQL is similar to using SQL in that the concept of a table having rows and columns is almost the same in CQL and SQL. The main difference is that Cassandra does not support joins or subqueries, except for batch analysis through Hive. Instead, Cassandra emphasizes denormalization through CQL features like collections and clustering specified at the schema level [1]. CQL is the recommended way to interact with Cassandra. The simplicity of reading and using CQL is an advantage over older Cassandra APIs.The goal of this project is to provide a highly configurable and flexible Camel component for CQL. The CQL component allows one to create Camel routes that integrate with the Cassandra DBMS. The initial release of this component supports a Camel producer (e.g., `to()`), but not consumer. The producer provides the basic CRUD (create, read, update, delete) functionality and implements the InOut Camel message exchange pattern (MEP). 
-Unlike other Camel Cassandra CQL components (e.g., http://camel.apache.org/cassandra.html), this component decouples the Camel route from the CQL query statement. So using this component, one may define a Cassandra CQL endpoint that can dynamically access any CQL query statement within a predefined set of such statements. It is a set of key:value pairs, which is conveyed through a Camel Exchange message body, that binds the Exchange's message body to a particular CQL query statement. So with this component, a Cassandra endpoint is used as a conduit for dynamically binding Exchange message bodies to CQL statements, and then executing those statements. Exchange message bodies are also optional for those cases where a set of key:value pairs is not required to invoke a target CQL query statement. So the upshot for this Camel CQL component is that there is no requirement to specify a CQL query statement within the Exchange message itself nor as a component URI option. This provides the flexibility of creating, deleting and updating CQL query statements without having to modify existing Camel routes.  
+Unlike other Camel Cassandra CQL components (e.g., http://camel.apache.org/cassandra.html), this component decouples the Camel route from the CQL query statement. So using this component, one may define a Cassandra CQL endpoint that can dynamically access any CQL query statement within a predefined set of such statements. It is a set of key:value pairs, which is conveyed through a Camel Exchange message body, that binds the Exchange's message body to a particular CQL query prepared statement. So with this component, a Cassandra endpoint is used as a conduit for dynamically binding Exchange message bodies to parameterized CQL statements, and then executing those statements. Exchange message bodies are optional for those cases where a set of key:value pairs is not required to invoke a target CQL query statement. So for this Camel CQL component there is no requirement to specify a CQL query statement within the Exchange message itself nor as a component URI option. This provides the flexibility of creating, deleting and updating CQL query statements without having to modify existing Camel routes. Access to a Cassandra cluster is provided via a standalone [Cluster](#clusterbean) bean, which effectively defines/configures an instance of a [Cassandra Java driver](http://docs.datastax.com/en/developer/java-driver/3.0/java-driver/whatsNew2.html).  
 
 <h1 id="URI Format">URI Format</h1>
 [[back to top]](#top)
@@ -83,7 +83,7 @@ For example configuration files, see the set of XML files in the project's .../t
 [[back to top]](#top)
 
 
-The [Client](#client) bean is a thread-safe component that is used by the CQL component for accessing a Cassandra cluster, a keyspace within the cluster, and any tables within the keyspace. You can define any number of Client beans, and the CQL component will automatically inject itself with all the Client beans that it locates within its application context. So there is no need to explicitly wire the CQL component to the Client beans. 
+The [Client](#client) bean is a thread-safe component that is used by the CQL component for accessing a set of CQL statements,  Cassandra cluster, a keyspace within the cluster, and any tables within the keyspace. You can define any number of Client beans, and the CQL component will automatically inject itself with all the Client beans that it locates within its application context. So there is no need to explicitly wire the CQL component to the Client beans. 
 
 The CQL endpoint's URI is used to identify the target Client bean. For example, a URI endpoint of `cql:user` specifies the Client bean with an id of "user", which may logically be used for accessing the "user" table in a Cassandra keyspace. Also see [Client Mapper](#clientmapper) for using ant-style pattern matching to identify a client bean. Using a Camel [property place holder](http://camel.apache.org/properties.html), such as `cql:{{client}}` , you can make the endpoint that much more dynamically configurable. 
 
@@ -109,7 +109,7 @@ If the input parameters are passed in as a `Map<String, String>` or List of `Map
 
 The response message (Camel out message), which results from a SELECT query, is returned to the calling application as a List of Maps, where each `Map<String, Object>` represents a row in the result set returned by Cassandra.   
 
-So through a single CQL endpoint, you can invoke any of the CQL statements that are assigned to its corresponding Client. This, therefore, precludes the endpoint from getting nailed to any one particular CQL statement for it is the method and input parameters that decide which CQL statement will be used. Here's a snippet of XML that defines a client bean called "user". 
+So through a single CQL endpoint, you can invoke any of the CQL statements that are assigned to its corresponding Client. This, therefore, precludes the endpoint from getting nailed to any one particular CQL statement for it is the method and input parameters that dictate which CQL statement will be used. Here's a snippet of XML that defines a client bean called "user". 
 
 ```xml
 <!-- A Client bean called user and its injected CQL statements -->
@@ -167,9 +167,12 @@ If a ***cqls*** property is not specified, the client bean will self-inject all 
 </bean>
 ``` 
 
+Note that there exists a M:N relationship between Client and its assigned CqlStmnts; i.e., a Client can be wired to many  CQLStmnts and a CQLStmnt can be wired to many Clients. Thus a CQLStmnt is independent of any one Client.   
+
+
 <u>keyspace</u>
 
-The **keyspace** property is used to specify the name of the keyspace, within a Cassandra cluster, that the client bean is to reference. Note that this is overridden when a CQL statement provides a fully qualified keyspace name (e.g., keyspace_name.table_name) that is different than the one assigned to the client bean.  
+The **keyspace** property is used to specify the name of the Cassandra keyspace that the client bean is to reference. Note that this is overridden when a CQL statement provides a fully qualified keyspace name (e.g., keyspace_name.table_name) that is different than the one assigned to the client bean.  
 
 <u>clusterBean</u>
 
@@ -212,7 +215,7 @@ The **autoInject** property is used to essentially disable the Client bean. So i
 <h2 id="cqlstatement">CQL Statement</h2>
 [[back to top]](#top)
 
-Before proceeding with this next bean, lets recap what has been covered. A CQL component self-injects all [Client](#client) beans that it locates and these Client beans are injected with a set of CQL statements. Recall that you can either explicitly inject a set of CQL statements into the Client or you can let the Client self-inject all the CQL statements that it locates in its respective application context.   
+Before proceeding with this next bean, lets recap what has been covered. A CQL component self-injects all [Client](#client) beans that it locates and these Client beans are injected with a set of CQL statements and Cluster bean. Recall that you can either explicitly inject a set of CQL statements and Cluster bean into the Client or you can let the Client self-inject all the CQL statements and **single** Cluster bean that it locates in its respective application context.   
  
 This section lists and describes all of the properties for the CQL statement bean. Most of these properties correlate to those found in the [Cassandra Statement](http://docs.datastax.com/en/drivers/java/3.0/com/datastax/driver/core/Statement.html) class.
 
@@ -245,13 +248,15 @@ The **statement** property is used to specify the actual CQL statement. Here's t
 </bean>
 ```
 
-Note that three of the statements have fields delimited by backticks (e.g., \`list:text:email\`). These are *parameterized fields* that comprise 2 or 3 subfields, which are delimited by a ":" character. So any CQL statement with one or more parameterized fields is treated as a CQL prepared statement. A CQL prepared statement's parameterized fields are used for binding input parameters, which arrive via the CQL endpoint's incoming request message, to the prepared statement. 
+Note that three of the statements have fields delimited by backticks (e.g., \`list:text:email\`). These are *parameterized fields* that comprise 2 or 3 subfields, which are delimited by a ":" character. So any CQL statement with one or more parameterized fields is treated as a CQL prepared statement. A CQL prepared statement's parameterized fields are used for binding input parameters, which arrive via the CQL endpoint's incoming request message body, to the prepared statement. 
 
 The first subfield (from right-to-left) of a parameterized field is required, and it specifies the name of the input parameter that corresponds to the field. In other words, it must match the key name of a `key:value` pair that is passed in via an incoming request message. In the "select2" example statement above, "username" is the key name of the input parameter. 
 
 The second subfield, which is also required, is the type of input parameter, and it must match one of the Cassandra [data types](http://www.datastax.com/drivers/java/3.0/com/datastax/driver/core/DataType.Name.html). Also see [CQL data types to Java types](http://docs.datastax.com/en/developer/java-driver/3.0/java-driver/reference/javaClass2Cql3Datatypes.html). Please note that the Date type is a Cassandra [LocalDate](http://docs.datastax.com/en/drivers/java/3.0/com/datastax/driver/core/LocalDate.html) and must be passed in as either a number of milliseconds since January 1st, 1970 GMT or of the form '2014-12-32'; i.e., year-month-day.
 
-The third and last subfield, which is optional, is used to specify a collection (list, map, or set). Here are a some examples:
+The third and last subfield, which is optional, is used to specify a collection (list, map, or set). 
+
+Here are a some examples:
 
 1. **\`list:text:email\`** is a parameterized field that is matched up to an input parameter whose key name is 'email' and whose value is a list of ascii text strings. 
 2. **\`text:username\`** is a parameterized field that is matched up to an input parameter whose key name is 'username' and whose value is an ascii text string. 
@@ -273,7 +278,7 @@ select first, last from user where username =`text:username` and `int:age` = 59
 ````
 Even though they share one identical parameterized field, they do not have an equal number of parameterized fields.
 
-When a request message, in the form of a Camel in-message, arrives at a CQL endpoint that specifies a SELECT method, the three **distinct** SELECT statements (from the above set) become candidates for the request. The input parameters (key:value pairs) in the request message dictate which of the three to use. For example, if the request message contains one Map with one key:value pair of `username:joe`, then the Map is bound to the second SELECT CQL statement. If the request message contains only one Map with one key:value pair of `user:joe`, then the Map is bound to the third SELECT statement. If there is no request message (i.e., the Camel exchange does not include an in body), the first CQL select statement is used because it has no parameterized fields. An exception is thrown if a match cannot be found. 
+When a request message, in the form of a Camel in-message body, arrives at a CQL endpoint that specifies a SELECT method, the three **distinct** SELECT statements (from the above set) become candidates for the request. The input parameters (key:value pairs) in the request message dictate which of the three to use. For example, if the request message contains one Map with one key:value pair of `username:joe`, then the Map is bound to the second SELECT CQL statement. If the request message contains only one Map with one key:value pair of `user:joe`, then the Map is bound to the third SELECT statement. If there is no request message (i.e., the Camel exchange does not include an in body), the first CQL select statement is used because it has no parameterized fields. An exception is thrown if a match cannot be found. 
 
 **If the in-message comprises a list of maps, then all of the maps in the payload must have the same set of key names!** If there is a list of maps, then it represents a batch UPDATE, INSERT, or DELETE. A list of maps cannot be used for a SELECT.  
 
@@ -308,8 +313,6 @@ The **idempotent** property sets whether this statement is idempotent. Idempoten
 
 The **[retryPolicy](http://docs.datastax.com/en/drivers/java/3.0/com/datastax/driver/core/policies/RetryPolicy.html)** sets the retry policy to use for this query. The default retry policy, if this method is not called, is the one returned by Policies.getRetryPolicy() in the cluster configuration. This method is thus only useful in case you want to punctually override the default policy for this request.
 
-
-
 <u>tracing</u>
 
 When set, the **tracing** boolean property enables tracing for this statement. 
@@ -341,11 +344,11 @@ You can only have one client mapper per Spring XML application context.
 <h2 id="clusterbean">Cluster Bean</h2>
 [[back to top]](#top)
 
-A cluster bean, in combination with its referenced beans, is used for configuring an instance of a [Cassandra Java driver](http://docs.datastax.com/en/developer/java-driver/3.0/java-driver/whatsNew2.html), which is used for accessing a Cassandra cluster. Each client bean in the Spring context must be wired to a cluster bean. You can define any number of cluster beans; each used for accessing a different Cassandra cluster. 
+A Cluster bean, in combination with its referenced beans, is used for configuring an instance of a [Cassandra Java driver](http://docs.datastax.com/en/developer/java-driver/3.0/java-driver/whatsNew2.html). The Cluster bean is then used by  [Client](#client) beans for accessing the corresponding Cassandra cluster; each Client bean must be wired to a Cluster bean. You can define any number of cluster beans; however, you will typically only have to define one Cassandra cluster. 
 
-The cluster bean is used to build an instance of a Cassandra [Cluster](http://docs.datastax.com/en/drivers/java/3.0/com/datastax/driver/core/Cluster.html) object. The cluster bean implements the [Cluster.Initializer](http://docs.datastax.com/en/drivers/java/3.0/com/datastax/driver/core/Cluster.Initializer.html) interface and uses itself to build a Cluster.
+The Cluster bean is used to build an instance of a Cassandra [Cluster](http://docs.datastax.com/en/drivers/java/3.0/com/datastax/driver/core/Cluster.html) object. The Cluster bean implements the [Cluster.Initializer](http://docs.datastax.com/en/drivers/java/3.0/com/datastax/driver/core/Cluster.Initializer.html) interface and uses itself to build a Cluster.
 
-The following is an example definition of a cluster bean. Please note that not all of the cluster bean's properties are depicted in the example. Also, please refer to the driver's [API docs](http://docs.datastax.com/en/drivers/java/3.0/index.html) for more detailed information on the driver's policies and options.  
+The following is an example definition of a Cluster bean. Please note that not all of the cluster bean's properties are depicted in the example. Also, please refer to the driver's [API docs](http://docs.datastax.com/en/drivers/java/3.0/index.html) for more detailed information on the driver's policies and options.  
 
 
 ```xml
