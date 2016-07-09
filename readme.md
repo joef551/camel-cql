@@ -172,7 +172,7 @@ Note that there exists a M:N relationship between Client and its assigned CqlStm
 
 <u>keyspace</u>
 
-The **keyspace** property is used to specify the name of the Cassandra keyspace that the client bean is to reference. Note that this is overridden when a CQL statement provides a fully qualified keyspace name (e.g., keyspace_name.table_name) that is different than the one assigned to the client bean.  
+The **keyspace** property is used to specify the name of the Cassandra keyspace that the client bean is to reference. Note that this is overridden when a CQL statement provides a keyspace qualifier (e.g., select * from keyspace_name.table_name) that is different than the one assigned to the client bean.  
 
 <u>clusterBean</u>
 
