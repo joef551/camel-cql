@@ -18,15 +18,37 @@
 	<version>1.0</version>
 	<packaging>bundle</packaging>
 
-	<name>Camel :: CQL</name>
-	<description>A Camel Cassandra CQL Component</description>
+	<name>camel-cql</name>
+	<description>A Camel Component for Cassandra CQL</description>
+	<url>https://github.com/joef551/camel-cql</url>
+
+	<licenses>
+		<license>
+			<name>The Apache License, Version 2.0</name>
+			<url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+		</license>
+	</licenses>
+
+	<developers>
+		<developer>
+			<name>Joe Fernandez</name>
+			<email>joef551@gmail.com</email>
+			<organizationUrl>https://github.com/joef551</organizationUrl>
+		</developer>
+	</developers>
+
+	<scm>
+		<connection>scm:git:git://github.com/joef551/camel-cql.git</connection>
+		<developerConnection>scm:git:ssh://github.com:joef551/camel-cql.git</developerConnection>
+		<url>http://github.com/joef551/camel-cql/tree/master</url>
+	</scm>
 
 	<properties>
 		<maven-bundle-plugin.version>2.4.0</maven-bundle-plugin.version>
 		<maven-compiler-plugin.version>2.3.2</maven-compiler-plugin.version>
 		<spring.version>4.0.5.RELEASE</spring.version>
 		<slf4j.version>1.7.7</slf4j.version>
-		<camel.version>2.13.1</camel.version>
+		<camel.version>2.17.2</camel.version>
 		<jackson.version>2.3.3</jackson.version>
 		<tycho.version>0.20.0</tycho.version>
 		<cassy.driver.version>3.0.2</cassy.driver.version>
